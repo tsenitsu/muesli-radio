@@ -34,7 +34,7 @@ protected:
     std::unique_ptr<audio_buffer::AudioBuffer<float>> m_outputAudioBuffer;
 };
 
-export template <class T>
+export template <class T> requires std::derived_from<T, AudioLibraryWrapper>
 [[nodiscard]] auto makeAudioLibraryWrapper(const LogCallback& logCallback, audio_driver::AudioDriver audioDriver) -> std::expected<std::unique_ptr<AudioLibraryWrapper>, std::string> {
     return std::make_unique<T>(logCallback, audioDriver);
 }

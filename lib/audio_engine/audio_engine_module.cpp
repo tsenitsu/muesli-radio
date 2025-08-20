@@ -11,7 +11,7 @@ import std;
 
 namespace audio_engine {
 
-export template<class T>
+export template<class T> requires std::derived_from<T, audio_library_wrapper::AudioLibraryWrapper>
 class AudioEngine {
 public:
     explicit AudioEngine(const audio_library_wrapper::LogCallback& logCallback, const audio_driver::AudioDriver newAudioDriver = audio_driver::availableAudioDrivers[0])
