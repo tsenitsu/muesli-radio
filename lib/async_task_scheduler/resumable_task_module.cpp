@@ -32,8 +32,7 @@ public:
 
         if (m_handle.done()) {
             signalCompletion();
-            std::println("DONE");
-        };
+        }
     }
 
     [[nodiscard]] auto result() const -> Result<Res> { return m_handle.promise().m_result; };
