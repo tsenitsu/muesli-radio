@@ -52,9 +52,9 @@ auto TaskExecutor::executeTasks(const std::stop_token& stopHandle) -> void {
             m_tasks.insert(std::ranges::end(m_tasks),
                 std::make_move_iterator(std::ranges::begin(m_pendingTasks)),
                 std::make_move_iterator(std::ranges::end(m_pendingTasks)));
-
-            m_pendingTasks.clear();
         }
+
+        m_pendingTasks.clear();
     } while (not stopHandle.stop_requested());
 }
 
