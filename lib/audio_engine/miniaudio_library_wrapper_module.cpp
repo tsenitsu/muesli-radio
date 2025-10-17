@@ -16,7 +16,7 @@ public:
     MiniaudioLibraryWrapper(const LogCallback& logCallback, audio_driver::AudioDriver audioDriver);
     ~MiniaudioLibraryWrapper() override;
 
-    [[nodiscard]] auto probeDevices() -> std::expected<std::vector<std::shared_ptr<const audio_device::AudioDevice>>,
+    [[nodiscard]] auto probeDevices() -> std::expected<std::vector<std::unique_ptr<const audio_device::AudioDevice>>,
         std::string> override;
     [[nodiscard]] auto audioDriver() const -> std::expected<audio_driver::AudioDriver, std::string> override;
     [[nodiscard]] auto openStream(const audio_stream_params::AudioStreamParams& audioStreamParams, const AudioCallback& audioCallback) -> bool override;

@@ -16,7 +16,7 @@ public:
     explicit AudioLibraryWrapper(const LogCallback& logCallback);
     virtual ~AudioLibraryWrapper() = default;
 
-    [[nodiscard]] virtual auto probeDevices() -> std::expected<std::vector<std::shared_ptr<const audio_device::AudioDevice>>,
+    [[nodiscard]] virtual auto probeDevices() -> std::expected<std::vector<std::unique_ptr<const audio_device::AudioDevice>>,
         std::string> = 0;
     [[nodiscard]] virtual auto audioDriver() const -> std::expected<audio_driver::AudioDriver, std::string> = 0;
     [[nodiscard]] virtual auto openStream(const audio_stream_params::AudioStreamParams& audioStreamParams,

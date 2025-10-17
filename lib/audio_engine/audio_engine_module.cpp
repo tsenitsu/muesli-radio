@@ -16,7 +16,7 @@ class AudioEngine {
 public:
     explicit AudioEngine(const audio_library_wrapper::LogCallback& logCallback, const audio_driver::AudioDriver newAudioDriver = audio_driver::availableAudioDrivers[0])
      :  m_audioLibraryWrapper { nullptr },
-        m_audioDevices { std::vector<std::shared_ptr<const audio_device::AudioDevice>> {} },
+        m_audioDevices { std::vector<std::unique_ptr<const audio_device::AudioDevice>> {} },
         m_audioStreamParams { nullptr },
         m_logCallback { logCallback },
         m_audioCallback { [] (audio_buffer::AudioBuffer<float>& inputBuffer, audio_buffer::AudioBuffer<float>& outputBuffer) {
@@ -115,7 +115,7 @@ public:
 
 protected:
     [[nodiscard]] auto getAudioDevice(const std::string& deviceName, audio_device::AudioDeviceType deviceType) const
-                    -> std::expected<std::ranges::borrowed_iterator_t<const std::vector<std::shared_ptr<const audio_device::AudioDevice>> &>, std::string> {
+                    -> std::expected<std::ranges::borrowed_iterator_t<const std::vector<std::unique_ptr<const audio_device::AudioDevice>> &>, std::string> {
         auto deviceItr { std::ranges::find_if(m_audioDevices, [&deviceName] (const auto& currentDevice) { return currentDevice->m_deviceName == deviceName; }) };
 
         if (deviceItr == std::ranges::end(m_audioDevices)) {
@@ -155,7 +155,7 @@ protected:
         return true;
     }
 
-    [[nodiscard]] auto getDefaultAudioDevice(const audio_device::AudioDeviceType deviceType) const -> std::expected<std::ranges::borrowed_iterator_t<const std::vector<std::shared_ptr<const audio_device::AudioDevice>> &>, std::string> {
+    [[nodiscard]] auto getDefaultAudioDevice(const audio_device::AudioDeviceType deviceType) const -> std::expected<std::ranges::borrowed_iterator_t<const std::vector<std::unique_ptr<const audio_device::AudioDevice>> &>, std::string> {
         auto deviceItr { std::ranges::find_if(m_audioDevices, [&deviceType] (const auto& currentDevice) { return currentDevice->m_type == deviceType && currentDevice->m_isDefault; }) };
 
         if (deviceItr == std::ranges::end(m_audioDevices)) {
@@ -171,7 +171,7 @@ protected:
     static constexpr std::array<const audio_stream_params::BufferLength_t, 5> m_allowedBufferLengths { 1024, 2048, 4096, 8192, 16384 };
 
     std::unique_ptr<audio_library_wrapper::AudioLibraryWrapper> m_audioLibraryWrapper;
-    std::vector<std::shared_ptr<const audio_device::AudioDevice>> m_audioDevices;
+    std::vector<std::unique_ptr<const audio_device::AudioDevice>> m_audioDevices;
     std::shared_ptr<audio_stream_params::AudioStreamParams> m_audioStreamParams;
 
 private:

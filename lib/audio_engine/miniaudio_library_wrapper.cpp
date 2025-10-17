@@ -41,7 +41,7 @@ MiniaudioLibraryWrapper::~MiniaudioLibraryWrapper() {
         m_logCallback("Failed to uninitialize miniaudio context\n");
 }
 
-auto MiniaudioLibraryWrapper::probeDevices() -> std::expected<std::vector<std::shared_ptr<const audio_device::AudioDevice> >, std::string> {
+auto MiniaudioLibraryWrapper::probeDevices() -> std::expected<std::vector<std::unique_ptr<const audio_device::AudioDevice> >, std::string> {
     ma_device_info* outputDevices;
     ma_uint32 outputDeviceCount;
 
@@ -52,7 +52,7 @@ auto MiniaudioLibraryWrapper::probeDevices() -> std::expected<std::vector<std::s
         return std::unexpected { std::string { "Can not retrieve devices from miniaudio context" } };
     }
 
-    std::vector<std::shared_ptr<const audio_device::AudioDevice>> deviceList {};
+    std::vector<std::unique_ptr<const audio_device::AudioDevice>> deviceList {};
 
     for (ma_uint32 i { 0 }; i < outputDeviceCount; ++i) {
         if (ma_context_get_device_info(&m_context, ma_device_type_playback, &outputDevices[i].id, &outputDevices[i]) != MA_SUCCESS) {

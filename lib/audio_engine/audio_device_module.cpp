@@ -18,7 +18,8 @@ public:
 
      [[nodiscard]] ma_device_id id() const;
 
-    bool operator==(const DeviceId &) const;
+    auto operator==(const DeviceId& other) const -> bool;
+    auto operator<=>(const DeviceId&) const -> std::strong_ordering;
 
 private:
     ma_device_id m_id;
@@ -40,6 +41,8 @@ public:
     ChannelCount_t m_channels;
     SampleRate_t m_sampleRate;
     Flags_t m_flags;
+
+    auto operator<=>(const NativeDataFormat&) const = default;
 };
 
 export class AudioDevice final {
@@ -55,14 +58,15 @@ public:
     bool m_isDefault;
     AudioDeviceType m_type;
     std::vector<NativeDataFormat> m_nativeDataFormats;
+
+    auto operator<=>(const AudioDevice&) const = default;
 };
 
 export [[nodiscard]] auto makeAudioDevice(const DeviceId& id,
                     std::string&& name,
                     bool isDefault,
                     AudioDeviceType type,
-                    std::vector<NativeDataFormat>&& formats) -> std::expected<std::shared_ptr<const AudioDevice>, std::
-    string>;
+                    std::vector<NativeDataFormat>&& formats) -> std::expected<std::unique_ptr<const AudioDevice>, std::string>;
 
 export [[nodiscard]] auto toString(const AudioDevice& device) -> std::string;
 export [[nodiscard]] auto toString(const NativeDataFormat& nativeFormat) -> std::string;

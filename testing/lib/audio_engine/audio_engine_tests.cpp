@@ -10,7 +10,7 @@ class AudioLibraryWrapperMock final: public audio_library_wrapper::AudioLibraryW
 public:
     AudioLibraryWrapperMock([[maybe_unused]] const audio_library_wrapper::LogCallback& callback, [[maybe_unused]] const audio_driver::AudioDriver audioDriver) : AudioLibraryWrapper(nullptr) {}
 
-    MOCK_METHOD((std::expected<std::vector<std::shared_ptr<const audio_device::AudioDevice>>, std::string>), probeDevices, (), (override));
+    MOCK_METHOD((std::expected<std::vector<std::unique_ptr<const audio_device::AudioDevice>>, std::string>), probeDevices, (), (override));
     MOCK_METHOD((std::expected<audio_driver::AudioDriver, std::string>), audioDriver, (), (const, override));
     MOCK_METHOD(bool, openStream, (const audio_stream_params::AudioStreamParams& audioStreamParams, const audio_library_wrapper::AudioCallback& audioCallback), (override));
     MOCK_METHOD(void, closeStream, (), (override));
@@ -42,30 +42,30 @@ protected:
     AudioEngineMock<AudioLibraryWrapperMock> m_audioEngineMock;
 };
 
-const auto inputDevice { audio_device::makeAudioDevice(audio_device::DeviceId { 1 }, "input", false,
-                    audio_device::AudioDeviceType::Input, std::vector { audio_device::NativeDataFormat { audio_format::AudioFormat::Float32, 2, 44100, 0 } }).value() };
+auto makeInputDevice() -> auto { return audio_device::makeAudioDevice(audio_device::DeviceId { 1 }, "input", false,
+                    audio_device::AudioDeviceType::Input, std::vector { audio_device::NativeDataFormat { audio_format::AudioFormat::Float32, 2, 44100, 0 } }).value(); }
 
-const auto outputDevice { audio_device::makeAudioDevice(audio_device::DeviceId { 2 }, "output", false,
-                    audio_device::AudioDeviceType::Output, std::vector { audio_device::NativeDataFormat { audio_format::AudioFormat::Float32, 2, 44100, 0 } }).value() };
+auto makeOutputDevice() -> auto { return audio_device::makeAudioDevice(audio_device::DeviceId { 2 }, "output", false,
+                    audio_device::AudioDeviceType::Output, std::vector { audio_device::NativeDataFormat { audio_format::AudioFormat::Float32, 2, 44100, 0 } }).value(); }
 
-const auto defaultInputDevice { audio_device::makeAudioDevice(audio_device::DeviceId { 1 }, "defaultInput", true,
-                    audio_device::AudioDeviceType::Input, std::vector { audio_device::NativeDataFormat { audio_format::AudioFormat::Float32, 2, 44100, 0 } }).value() };
+auto makeDefaultInputDevice() -> auto { return audio_device::makeAudioDevice(audio_device::DeviceId { 1 }, "defaultInput", true,
+                    audio_device::AudioDeviceType::Input, std::vector { audio_device::NativeDataFormat { audio_format::AudioFormat::Float32, 2, 44100, 0 } }).value(); }
 
-const auto defaultOutputDevice { audio_device::makeAudioDevice(audio_device::DeviceId { 2 }, "defaultOutput", true,
-                    audio_device::AudioDeviceType::Output, std::vector { audio_device::NativeDataFormat { audio_format::AudioFormat::Float32, 2, 44100, 0 } }).value() };
+auto makeDefaultOutputDevice() -> auto { return audio_device::makeAudioDevice(audio_device::DeviceId { 2 }, "defaultOutput", true,
+                    audio_device::AudioDeviceType::Output, std::vector { audio_device::NativeDataFormat { audio_format::AudioFormat::Float32, 2, 44100, 0 } }).value(); }
 
 TEST_F(AudioEngineTest, getDefaultAudioDevice) {
     EXPECT_EQ(m_audioEngineMock.defaultInputAudioDeviceName(), std::unexpected { "Audio device not found" });
     EXPECT_EQ(m_audioEngineMock.defaultAudioOutputDeviceName(), std::unexpected { "Audio device not found" });
 
-    m_audioEngineMock.m_audioDevices.push_back(inputDevice);
-    m_audioEngineMock.m_audioDevices.push_back(outputDevice);
+    m_audioEngineMock.m_audioDevices.push_back(makeInputDevice());
+    m_audioEngineMock.m_audioDevices.push_back(makeOutputDevice());
 
     EXPECT_EQ(m_audioEngineMock.defaultInputAudioDeviceName(), std::unexpected { "Audio device not found" });
     EXPECT_EQ(m_audioEngineMock.defaultAudioOutputDeviceName(), std::unexpected { "Audio device not found" });
 
-    m_audioEngineMock.m_audioDevices.push_back(defaultInputDevice);
-    m_audioEngineMock.m_audioDevices.push_back(defaultOutputDevice);
+    m_audioEngineMock.m_audioDevices.push_back(makeDefaultInputDevice());
+    m_audioEngineMock.m_audioDevices.push_back(makeDefaultOutputDevice());
 
     EXPECT_EQ(m_audioEngineMock.defaultInputAudioDeviceName(), (std::expected<std::string, std::string> { "defaultInput" }));
     EXPECT_EQ(m_audioEngineMock.defaultAudioOutputDeviceName(), (std::expected<std::string, std::string> { "defaultOutput" }));
@@ -75,15 +75,15 @@ TEST_F(AudioEngineTest, getAudioDevice) {
 
     EXPECT_EQ(m_audioEngineMock.getAudioDevice("input", audio_device::AudioDeviceType::Input), std::unexpected { "Audio device not found" });
 
-    m_audioEngineMock.m_audioDevices.push_back(inputDevice);
+    m_audioEngineMock.m_audioDevices.push_back(makeInputDevice());
 
-    EXPECT_EQ(**m_audioEngineMock.getAudioDevice("input", audio_device::AudioDeviceType::Input), inputDevice);
+    EXPECT_EQ(***m_audioEngineMock.getAudioDevice("input", audio_device::AudioDeviceType::Input), *makeInputDevice());
     EXPECT_EQ(m_audioEngineMock.getAudioDevice("input", audio_device::AudioDeviceType::Output), std::unexpected { "Audio device is not of type provided" });
     EXPECT_EQ(m_audioEngineMock.getAudioDevice("output", audio_device::AudioDeviceType::Output), std::unexpected { "Audio device not found" });
 
-    m_audioEngineMock.m_audioDevices.push_back(outputDevice);
+    m_audioEngineMock.m_audioDevices.push_back(makeOutputDevice());
 
-    EXPECT_EQ(**m_audioEngineMock.getAudioDevice("output", audio_device::AudioDeviceType::Output), outputDevice);
+    EXPECT_EQ(***m_audioEngineMock.getAudioDevice("output", audio_device::AudioDeviceType::Output), *makeOutputDevice());
     EXPECT_EQ(m_audioEngineMock.getAudioDevice("output", audio_device::AudioDeviceType::Input), std::unexpected { "Audio device is not of type provided" });
     EXPECT_EQ(m_audioEngineMock.getAudioDevice("non existing device", audio_device::AudioDeviceType::Input), std::unexpected { "Audio device not found" });
 }
@@ -131,8 +131,8 @@ TEST_F(AudioEngineTest, startStream) {
     EXPECT_EQ(m_audioEngineMock.startStream("input", std::nullopt, 2048), std::unexpected { std::string { "Could not find input device input: Audio device not found" } });
     EXPECT_EQ(m_audioEngineMock.startStream(std::nullopt, "output", 2048), std::unexpected { std::string { "Could not find output device output: Audio device not found" } });
 
-    m_audioEngineMock.m_audioDevices.push_back(inputDevice);
-    m_audioEngineMock.m_audioDevices.push_back(outputDevice);
+    m_audioEngineMock.m_audioDevices.push_back(makeInputDevice());
+    m_audioEngineMock.m_audioDevices.push_back(makeOutputDevice());
 
     EXPECT_EQ(m_audioEngineMock.startStream("input", std::nullopt, 2048), std::unexpected { std::string { "Could not close running stream" } });
     EXPECT_EQ(m_audioEngineMock.startStream("input", std::nullopt, 2048), (std::expected<void, std::string> {}));
