@@ -93,7 +93,7 @@ public:
             }
         }
 
-        const auto streamParamsResult { audio_stream_params::makeAudioStreamParams(m_sampleRate, m_format, bufferLength, m_periodSize, inputDeviceId, inputChannelCount, outputDeviceId, outputChannelCount) };
+        auto streamParamsResult { audio_stream_params::makeAudioStreamParams(m_sampleRate, m_format, bufferLength, m_periodSize, inputDeviceId, inputChannelCount, outputDeviceId, outputChannelCount) };
 
         if (not streamParamsResult.has_value()) {
             return std::unexpected { std::format("Error creating stream params: {}", streamParamsResult.error()) };
@@ -104,7 +104,7 @@ public:
         }
 
         // Audio thread stops here
-        m_audioStreamParams = std::move(streamParamsResult.value());
+        m_audioStreamParams.swap(streamParamsResult.value());
 
         if (not openStream()) {
             return std::unexpected { "Could not open stream" };
@@ -172,7 +172,7 @@ protected:
 
     std::unique_ptr<audio_library_wrapper::AudioLibraryWrapper> m_audioLibraryWrapper;
     std::vector<std::unique_ptr<const audio_device::AudioDevice>> m_audioDevices;
-    std::shared_ptr<audio_stream_params::AudioStreamParams> m_audioStreamParams;
+    std::unique_ptr<audio_stream_params::AudioStreamParams> m_audioStreamParams;
 
 private:
     audio_library_wrapper::LogCallback m_logCallback;

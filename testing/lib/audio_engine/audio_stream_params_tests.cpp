@@ -18,19 +18,24 @@ TEST(AudioStreamParams, createInputAudioStreamParams) {
         inputDeviceId, numberOfInputChannels) };
 
     ASSERT_TRUE(audioStreamParams.has_value());
-    const auto inputAudioStreamParams { std::dynamic_pointer_cast<audio_stream_params::InputAudioStreamParams>(audioStreamParams.value()) };
-    const auto outputAudioStreamParams { std::dynamic_pointer_cast<audio_stream_params::OutputAudioStreamParams>(audioStreamParams.value()) };
-    const auto duplexAudioStreamParams { std::dynamic_pointer_cast<audio_stream_params::DuplexAudioStreamParams>(audioStreamParams.value()) };
 
-    EXPECT_NE(inputAudioStreamParams, nullptr);
-    EXPECT_EQ(outputAudioStreamParams, nullptr);
-    EXPECT_EQ(duplexAudioStreamParams, nullptr);
+    EXPECT_NO_THROW({
+        const auto& inputAudioStreamParams { dynamic_cast<audio_stream_params::InputAudioStreamParams&>(*audioStreamParams.value()) };
 
-    EXPECT_EQ(inputAudioStreamParams->m_sampleRate, 44100);
-    EXPECT_EQ(inputAudioStreamParams->m_format, format);
-    EXPECT_EQ(inputAudioStreamParams->m_bufferLength, bufferLength);
-    EXPECT_EQ(inputAudioStreamParams->m_inputDeviceId, inputDeviceId);
-    EXPECT_EQ(inputAudioStreamParams->m_numberOfInputChannels, numberOfInputChannels);
+        EXPECT_EQ(inputAudioStreamParams.m_sampleRate, 44100);
+        EXPECT_EQ(inputAudioStreamParams.m_format, format);
+        EXPECT_EQ(inputAudioStreamParams.m_bufferLength, bufferLength);
+        EXPECT_EQ(inputAudioStreamParams.m_inputDeviceId, inputDeviceId);
+        EXPECT_EQ(inputAudioStreamParams.m_numberOfInputChannels, numberOfInputChannels);
+    });
+
+    EXPECT_THROW({
+        [[maybe_unused]] const auto& outputAudioStreamParams { dynamic_cast<audio_stream_params::OutputAudioStreamParams&>(*audioStreamParams.value()) };
+    }, std::bad_cast);
+
+    EXPECT_THROW({
+        [[maybe_unused]] const auto& duplexAudioStreamParams { dynamic_cast<audio_stream_params::DuplexAudioStreamParams&>(*audioStreamParams.value()) };
+    }, std::bad_cast);
 }
 
 TEST(AudioStreamParams, createOutputAudioStreamParams) {
@@ -45,19 +50,24 @@ TEST(AudioStreamParams, createOutputAudioStreamParams) {
         std::nullopt, std::nullopt, outputDeviceId, numberOfOutputChannels) };
 
     ASSERT_TRUE(audioStreamParams.has_value());
-    const auto inputAudioStreamParams { std::dynamic_pointer_cast<audio_stream_params::InputAudioStreamParams>(audioStreamParams.value()) };
-    const auto outputAudioStreamParams { std::dynamic_pointer_cast<audio_stream_params::OutputAudioStreamParams>(audioStreamParams.value()) };
-    const auto duplexAudioStreamParams { std::dynamic_pointer_cast<audio_stream_params::DuplexAudioStreamParams>(audioStreamParams.value()) };
 
-    EXPECT_EQ(inputAudioStreamParams, nullptr);
-    EXPECT_NE(outputAudioStreamParams, nullptr);
-    EXPECT_EQ(duplexAudioStreamParams, nullptr);
+    EXPECT_THROW({
+        [[maybe_unused]] const auto& inputAudioStreamParams { dynamic_cast<audio_stream_params::InputAudioStreamParams&>(*audioStreamParams.value()) };
+    }, std::bad_cast);
 
-    EXPECT_EQ(outputAudioStreamParams->m_sampleRate, 44100);
-    EXPECT_EQ(outputAudioStreamParams->m_format, format);
-    EXPECT_EQ(outputAudioStreamParams->m_bufferLength, bufferLength);
-    EXPECT_EQ(outputAudioStreamParams->m_outputDeviceId, outputDeviceId);
-    EXPECT_EQ(outputAudioStreamParams->m_numberOfOutputChannels, numberOfOutputChannels);
+    EXPECT_NO_THROW({
+        const auto& outputAudioStreamParams { dynamic_cast<audio_stream_params::OutputAudioStreamParams&>(*audioStreamParams.value()) };
+
+        EXPECT_EQ(outputAudioStreamParams.m_sampleRate, 44100);
+        EXPECT_EQ(outputAudioStreamParams.m_format, format);
+        EXPECT_EQ(outputAudioStreamParams.m_bufferLength, bufferLength);
+        EXPECT_EQ(outputAudioStreamParams.m_outputDeviceId, outputDeviceId);
+        EXPECT_EQ(outputAudioStreamParams.m_numberOfOutputChannels, numberOfOutputChannels);
+    });
+
+    EXPECT_THROW({
+        [[maybe_unused]] const auto& duplexAudioStreamParams { dynamic_cast<audio_stream_params::DuplexAudioStreamParams&>(*audioStreamParams.value()) };
+    }, std::bad_cast);
 }
 
 TEST(AudioStreamParams, createDuplexAudioStreamParams) {
@@ -74,21 +84,26 @@ TEST(AudioStreamParams, createDuplexAudioStreamParams) {
         inputDeviceId, numberOfInputChannels, outputDeviceId, numberOfOutputChannels) };
 
     ASSERT_TRUE(audioStreamParams.has_value());
-    const auto inputAudioStreamParams { std::dynamic_pointer_cast<audio_stream_params::InputAudioStreamParams>(audioStreamParams.value()) };
-    const auto outputAudioStreamParams { std::dynamic_pointer_cast<audio_stream_params::OutputAudioStreamParams>(audioStreamParams.value()) };
-    const auto duplexAudioStreamParams { std::dynamic_pointer_cast<audio_stream_params::DuplexAudioStreamParams>(audioStreamParams.value()) };
 
-    EXPECT_NE(inputAudioStreamParams, nullptr);
-    EXPECT_NE(outputAudioStreamParams, nullptr);
-    EXPECT_NE(duplexAudioStreamParams, nullptr);
+    EXPECT_NO_THROW({
+        [[maybe_unused]] const auto& inputStreamParams { dynamic_cast<audio_stream_params::InputAudioStreamParams&>(*audioStreamParams.value()) };
+    });
 
-    EXPECT_EQ(duplexAudioStreamParams->m_sampleRate, 44100);
-    EXPECT_EQ(duplexAudioStreamParams->m_format, format);
-    EXPECT_EQ(duplexAudioStreamParams->m_bufferLength, bufferLength);
-    EXPECT_EQ(duplexAudioStreamParams->m_inputDeviceId, inputDeviceId);
-    EXPECT_EQ(duplexAudioStreamParams->m_numberOfInputChannels, numberOfInputChannels);
-    EXPECT_EQ(duplexAudioStreamParams->m_outputDeviceId, outputDeviceId);
-    EXPECT_EQ(duplexAudioStreamParams->m_numberOfOutputChannels, numberOfOutputChannels);
+    EXPECT_NO_THROW({
+        [[maybe_unused]] const auto& outputStreamParams { dynamic_cast<audio_stream_params::OutputAudioStreamParams&>(*audioStreamParams.value()) };
+    });
+
+    EXPECT_NO_THROW({
+        const auto duplexAudioStreamParams {dynamic_cast<audio_stream_params::DuplexAudioStreamParams&>(*audioStreamParams.value()) };
+
+        EXPECT_EQ(duplexAudioStreamParams.m_sampleRate, 44100);
+        EXPECT_EQ(duplexAudioStreamParams.m_format, format);
+        EXPECT_EQ(duplexAudioStreamParams.m_bufferLength, bufferLength);
+        EXPECT_EQ(duplexAudioStreamParams.m_inputDeviceId, inputDeviceId);
+        EXPECT_EQ(duplexAudioStreamParams.m_numberOfInputChannels, numberOfInputChannels);
+        EXPECT_EQ(duplexAudioStreamParams.m_outputDeviceId, outputDeviceId);
+        EXPECT_EQ(duplexAudioStreamParams.m_numberOfOutputChannels, numberOfOutputChannels);
+    });
 }
 
 TEST(AudioStreamParams, invalidAudioStreamParams) {

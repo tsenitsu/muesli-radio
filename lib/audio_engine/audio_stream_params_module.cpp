@@ -81,7 +81,7 @@ export [[nodiscard]] auto makeAudioStreamParams(audio_device::SampleRate_t sampl
                 const std::optional<audio_device::DeviceId>& inputDeviceId = std::nullopt,
                 const std::optional<audio_device::ChannelCount_t>& numberOfInputChannels = std::nullopt,
                 const std::optional<audio_device::DeviceId>& outputDeviceId = std::nullopt,
-                const std::optional<audio_device::ChannelCount_t>& numberOfOutputChannels = std::nullopt) noexcept -> std::expected<std::shared_ptr<AudioStreamParams>, std::string>;
+                const std::optional<audio_device::ChannelCount_t>& numberOfOutputChannels = std::nullopt) noexcept -> std::expected<std::unique_ptr<AudioStreamParams>, std::string>;
 
 export [[nodiscard]] auto toString(const AudioStreamParams& audioStreamParams) -> std::string;
 }

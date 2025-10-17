@@ -67,7 +67,7 @@ auto makeAudioStreamParams(const audio_device::SampleRate_t sampleRate,
                     const std::optional<audio_device::DeviceId>& inputDeviceId,
                     const std::optional<audio_device::ChannelCount_t>& numberOfInputChannels,
                     const std::optional<audio_device::DeviceId>& outputDeviceId,
-                    const std::optional<audio_device::ChannelCount_t>& numberOfOutputChannels) noexcept -> std::expected<std::shared_ptr<AudioStreamParams>, std::string> {
+                    const std::optional<audio_device::ChannelCount_t>& numberOfOutputChannels) noexcept -> std::expected<std::unique_ptr<AudioStreamParams>, std::string> {
 
     if (sampleRate < 44100)
         return std::unexpected { std::string { "Invalid sample rate" } };
@@ -105,16 +105,16 @@ auto makeAudioStreamParams(const audio_device::SampleRate_t sampleRate,
     }
 
     if (inputDeviceProvided and outputDeviceProvided)
-        return std::make_shared<DuplexAudioStreamParams>(sampleRate, format, bufferLength, periodSize,
+        return std::make_unique<DuplexAudioStreamParams>(sampleRate, format, bufferLength, periodSize,
                                                     inputDeviceId.value(), numberOfInputChannels.value(),
                                                     outputDeviceId.value(), numberOfOutputChannels.value());
 
     if (inputDeviceProvided)
-        return std::make_shared<InputAudioStreamParams>(sampleRate, format, bufferLength, periodSize,
+        return std::make_unique<InputAudioStreamParams>(sampleRate, format, bufferLength, periodSize,
                                                 inputDeviceId.value(), numberOfInputChannels.value());
 
     if (outputDeviceProvided)
-        return std::make_shared<OutputAudioStreamParams>(sampleRate, format, bufferLength, periodSize,
+        return std::make_unique<OutputAudioStreamParams>(sampleRate, format, bufferLength, periodSize,
                                                 outputDeviceId.value(), numberOfOutputChannels.value());
 
     return std::unexpected { std::string { "No devices provided" } };
