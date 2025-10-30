@@ -11,4 +11,9 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(googletest)
 include(GoogleTest)
 
+if (GNU)
+    target_compile_options(gtest PRIVATE -Wno-nrvo)
+    target_compile_options(gmock PRIVATE -Wno-nrvo)
+endif()
+
 add_subdirectory(lib)

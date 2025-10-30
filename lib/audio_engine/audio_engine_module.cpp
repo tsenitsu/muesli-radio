@@ -134,6 +134,9 @@ protected:
     }
 
     [[nodiscard]] auto openStream() const -> bool {
+        if (m_audioStreamParams == nullptr)
+            return false;
+
         return m_audioLibraryWrapper->openStream(*m_audioStreamParams, m_audioCallback) && m_audioLibraryWrapper->startStream();
     }
 

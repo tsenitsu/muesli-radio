@@ -8,7 +8,7 @@ namespace async_task_scheduler {
 
 export class Dependency final {
 public:
-    explicit Dependency(const Signal& signal) :  m_dependency { signal.m_result } {}
+    explicit Dependency(const Signal& signal) :  m_dependency { signal.getFuture() } {}
 
     auto wait() const -> void { m_dependency.wait(); }
     [[nodiscard]] auto waitFor(const std::chrono::milliseconds timeout) const -> bool { return m_dependency.wait_for(timeout) == std::future_status::ready; }

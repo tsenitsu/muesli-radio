@@ -19,8 +19,6 @@ public:
      [[nodiscard]] ma_device_id id() const;
 
     auto operator==(const DeviceId& other) const -> bool;
-    auto operator<=>(const DeviceId&) const -> std::strong_ordering;
-
 private:
     ma_device_id m_id;
 };
@@ -42,7 +40,7 @@ public:
     SampleRate_t m_sampleRate;
     Flags_t m_flags;
 
-    auto operator<=>(const NativeDataFormat&) const = default;
+    auto operator==(const NativeDataFormat&) const -> bool = default;
 };
 
 export class AudioDevice final {
@@ -59,7 +57,7 @@ public:
     AudioDeviceType m_type;
     std::vector<NativeDataFormat> m_nativeDataFormats;
 
-    auto operator<=>(const AudioDevice&) const = default;
+    auto operator==(const AudioDevice&) const -> bool = default;
 };
 
 export [[nodiscard]] auto makeAudioDevice(const DeviceId& id,

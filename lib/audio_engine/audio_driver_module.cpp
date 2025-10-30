@@ -38,7 +38,7 @@ export constexpr std::array availableAudioDrivers {
     AudioDriver::CoreAudio,
 #endif
 #ifdef __linux__
-    AudioDriver::Pulse,
+    AudioDriver::PulseAudio,
     AudioDriver::Alsa,
     AudioDriver::Jack,
 #endif

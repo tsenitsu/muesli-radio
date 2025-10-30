@@ -6,7 +6,7 @@ import async_task_scheduler;
 using namespace async_task_scheduler;
 
 constexpr int numberOfTasks { 10 };
-constexpr unsigned int numberOfThreads { 5 };
+constexpr int numberOfThreads { 5 };
 
 TEST(AsyncTaskScheduler, makeAsyncTaskScheduler) {
     auto asyncTaskScheduler { makeAsyncTaskScheduler(0) };

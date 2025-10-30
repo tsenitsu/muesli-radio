@@ -25,6 +25,7 @@ auto toAudioFormat(const ma_format format) -> std::expected<AudioFormat, std::st
         case ma_format_s24:     return AudioFormat::SignedInt24;
         case ma_format_s32:     return AudioFormat::SignedInt32;
         case ma_format_f32:     return AudioFormat::Float32;
+        default: break;
     }
 
     return std::unexpected { std::string { "ma_format unknown" } };

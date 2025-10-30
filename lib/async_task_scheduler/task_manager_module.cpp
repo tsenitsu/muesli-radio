@@ -33,7 +33,7 @@ public:
         m_threadId { 0 } {}
 
 private:
-    auto updateThreadId() -> void { m_threadId = ++m_threadId % m_scheduler.concurrencyLevel(); }
+    auto updateThreadId() -> void { m_threadId = (m_threadId + 1) % m_scheduler.concurrencyLevel(); }
 
     AsyncTaskScheduler& m_scheduler;
     unsigned int m_concurrencyLevel;

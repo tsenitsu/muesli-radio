@@ -8,15 +8,16 @@ import result;
 namespace async_task_scheduler {
 
 template <typename T>
-struct promise_type;
+struct resumable_task_promise;
 
 export template <typename Res>
 class ResumableTask final: public AsyncTask {
 public:
-    using promise_type = promise_type<Res>;
+    using promise_type = resumable_task_promise<Res>;
 
     explicit ResumableTask(std::coroutine_handle<promise_type> handle): m_handle { handle } {}
-    ResumableTask(ResumableTask&& other) noexcept :  m_handle { std::move(other.m_handle) } {}
+    ResumableTask(ResumableTask&& other) noexcept :  m_handle { std::move(other.m_handle) } { other.m_handle = nullptr; }
+    ~ResumableTask() { if (m_handle) m_handle.destroy(); }
 
     ResumableTask(const ResumableTask& other) = delete;
     ResumableTask& operator=(ResumableTask&& other) = delete;
@@ -43,10 +44,10 @@ private:
 };
 
 template <typename Res>
-struct promise_type {
-    promise_type() :  m_promise {}, m_result { m_promise.get_future().share() } {}
+struct resumable_task_promise {
+    resumable_task_promise() :  m_promise {}, m_result { m_promise.get_future().share() } {}
 
-    auto get_return_object() noexcept -> ResumableTask<Res> { return ResumableTask<Res>{ std::coroutine_handle<promise_type>::from_promise(*this)}; }
+    auto get_return_object() noexcept -> ResumableTask<Res> { return ResumableTask<Res>{ std::coroutine_handle<resumable_task_promise>::from_promise(*this)}; }
 
     static auto initial_suspend() noexcept -> std::suspend_always { return {}; }
     static auto final_suspend() noexcept -> std::suspend_always { return {}; }
@@ -60,10 +61,10 @@ struct promise_type {
 };
 
 template <>
-struct promise_type<void> {
-    promise_type() :  m_promise {}, m_result { m_promise.get_future().share() } {}
+struct resumable_task_promise<void> {
+    resumable_task_promise() :  m_promise {}, m_result { m_promise.get_future().share() } {}
 
-    auto get_return_object() noexcept -> ResumableTask<void> { return ResumableTask { std::coroutine_handle<promise_type>::from_promise(*this)}; }
+    auto get_return_object() noexcept -> ResumableTask<void> { return ResumableTask { std::coroutine_handle<resumable_task_promise>::from_promise(*this)}; }
     static auto initial_suspend() noexcept -> std::suspend_always { return {}; }
     static auto final_suspend() noexcept -> std::suspend_always { return {}; }
 

@@ -27,11 +27,12 @@ auto toBackend(const AudioDriver driver) -> std::expected<ma_backend, std::strin
         case AudioDriver::CoreAudio:    return ma_backend_coreaudio;
 #endif
 #ifdef __linux__
-        case AudioDriver::Pulse:        return ma_backend_pulseaudio;
+        case AudioDriver::PulseAudio:        return ma_backend_pulseaudio;
         case AudioDriver::Alsa:         return ma_backend_alsa;
         case AudioDriver::Jack:         return ma_backend_jack;
 #endif
         case AudioDriver::Null:        return ma_backend_null;
+        default: break;
     }
 
     return std::unexpected { "Audio driver unknown" };
@@ -53,6 +54,7 @@ auto toAudioDriver(const ma_backend backend) -> std::expected<AudioDriver, std::
         case ma_backend_jack:       return AudioDriver::Jack;
 #endif
         case ma_backend_null:     return AudioDriver::Null;
+        default: break;
     }
 
     return std::unexpected { "Audio backend unknown" };

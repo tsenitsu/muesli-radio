@@ -35,7 +35,7 @@ private:
     ma_device m_device;
 };
 
-export template<>
+template<>
 [[nodiscard]] auto makeAudioLibraryWrapper<MiniaudioLibraryWrapper>(const LogCallback& logCallback, audio_driver::AudioDriver audioDriver) -> std::expected<std::unique_ptr<AudioLibraryWrapper>, std::string>;
 
 }

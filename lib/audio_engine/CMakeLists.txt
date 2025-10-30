@@ -29,6 +29,12 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(miniaudio)
 
+if (MSVC)
+    target_compile_options(miniaudio PRIVATE /wd4456 /wd4245)
+else()
+    target_compile_options(miniaudio PRIVATE -Wno-switch -Wno-shadow)
+endif()
+
 add_library(audio-engine
         audio_driver.cpp
         audio_format.cpp

@@ -33,6 +33,7 @@ public:
     using AudioEngine<T>::m_allowedBufferLengths;
     using AudioEngine<T>::m_audioDevices;
     using AudioEngine<T>::m_audioLibraryWrapper;
+    using AudioEngine<T>::m_audioStreamParams;
 
     friend class AudioEngineTest;
 };
@@ -153,6 +154,9 @@ TEST_F(AudioEngineTest, openStream) {
         .WillOnce(testing::Return(true))
         .WillOnce(testing::Return(false))
         .WillOnce(testing::Return(true));
+
+    m_audioEngineMock.m_audioStreamParams = audio_stream_params::makeAudioStreamParams(44100, audio_format::AudioFormat::Float32,
+        2048, 3, audio_device::DeviceId { 1 }, 2).value();
 
     EXPECT_EQ(m_audioEngineMock.openStream(), true);
     EXPECT_EQ(m_audioEngineMock.openStream(), false);

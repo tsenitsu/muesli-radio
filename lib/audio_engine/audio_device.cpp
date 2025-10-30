@@ -8,7 +8,9 @@ DeviceId::DeviceId(const ma_device_id& id)
  :  m_id { id } {}
 
 DeviceId::DeviceId(const int id)
- :  m_id { .nullbackend = id } {}
+ :  m_id {} {
+    m_id.nullbackend = id;
+}
 
 ma_device_id DeviceId::id() const {
     return m_id;
@@ -16,13 +18,6 @@ ma_device_id DeviceId::id() const {
 
 auto DeviceId::operator==(const DeviceId &other) const -> bool {
     return ma_device_id_equal(&m_id, &other.m_id);
-}
-
-auto DeviceId::operator<=>(const DeviceId &other) const -> std::strong_ordering {
-    if (ma_device_id_equal(&m_id, &other.m_id))
-        return std::strong_ordering::equal;
-
-    return std::strong_ordering::greater;
 }
 
 NativeDataFormat::NativeDataFormat(const audio_format::AudioFormat format,
