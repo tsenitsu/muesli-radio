@@ -9,6 +9,23 @@ namespace audio_engine::audio_buffer {
 // TODO: Use mdspan when it will be iterable and support subspan
 export template<class T> using AudioChannel = std::span<T>;
 
+export template <typename T>
+struct AudioBufferView {
+    AudioBufferView(const AudioChannel<T>& left, const AudioChannel<T>& right)
+      : m_leftMono { left },
+        m_right { right } {}
+
+    template <typename U> requires std::convertible_to<AudioChannel<U>, AudioChannel<T>>
+    AudioBufferView(const AudioBufferView<U>& other)
+      : m_leftMono { other.m_leftMono },
+        m_right { other.m_right } {}
+
+    AudioChannel<T> m_leftMono;
+    AudioChannel<T> m_right;
+};
+
+export template <typename T> using ReadOnlyAudioBufferView = AudioBufferView<const T>;
+
 export template <class T>
 class AudioBuffer final {
 public:
@@ -34,11 +51,21 @@ public:
         return static_cast<audio_stream_params::BufferLength_t>(m_channels[0].size());
     }
 
+    [[nodiscard]] auto view(const audio_device::ChannelCount_t leftChannel, const std::optional<audio_device::ChannelCount_t>& rightChannel = std::nullopt) const -> AudioBufferView<T> {
+        AudioChannel<T> leftMono { AudioChannel<T> {} };
+        AudioChannel<T> right { AudioChannel<T> {} };
+
+        if (isChannelAllowed(leftChannel)) leftMono = m_channels[leftChannel];
+        if (rightChannel.has_value() and isChannelAllowed(rightChannel.value())) right = m_channels[rightChannel.value()];
+
+        return AudioBufferView<T> { leftMono, right };
+    }
+
     auto addFrom(const AudioBuffer& bufferSrc, const  audio_device::ChannelCount_t channelSrc, const  audio_device::ChannelCount_t channelDest) -> void {
         if (not bufferSrc.isChannelAllowed(channelSrc) or not isChannelAllowed(channelDest))
             return;
 
-        const auto maxLength { std::min(bufferSrc.m_channels[channelSrc].size(), m_channels[channelDest].size()) };
+        const auto maxLength { std::min(std::ranges::ssize(bufferSrc.m_channels[channelSrc]), std::ranges::ssize(m_channels[channelDest])) };
 
         std::ranges::transform(std::ranges::begin(bufferSrc.m_channels[channelSrc]), std::ranges::next(std::ranges::begin(bufferSrc.m_channels[channelSrc]), maxLength),
             std::ranges::begin(m_channels[channelDest]), std::ranges::next(std::ranges::begin(m_channels[channelDest]), maxLength), std::ranges::begin(m_channels[channelDest]), std::plus<T>());
@@ -48,7 +75,7 @@ public:
         if (not bufferSrc.isChannelAllowed(channelSrc) or not isChannelAllowed(channelDest))
             return;
 
-        const auto maxLength { std::min(bufferSrc.m_channels[channelSrc].size(), m_channels[channelDest].size()) };
+        const auto maxLength { std::min(std::ranges::ssize(bufferSrc.m_channels[channelSrc]), std::ranges::ssize(m_channels[channelDest])) };
 
         std::ranges::copy(std::ranges::begin(bufferSrc.m_channels[channelSrc]), std::ranges::next(std::ranges::begin(bufferSrc.m_channels[channelSrc]), maxLength), std::ranges::begin(m_channels[channelDest]));
     }

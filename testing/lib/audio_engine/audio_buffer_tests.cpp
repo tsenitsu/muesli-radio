@@ -2,6 +2,7 @@
 
 import std;
 import audio_buffer;
+import audio_device;
 
 using namespace audio_engine;
 
@@ -204,4 +205,47 @@ TEST(AudioBuffer, interleave) {
 
     audioBuffer2->writeToRawBuffer(audioSamples2.data(), 3, 5, true);
     EXPECT_EQ(audioSamples2, (std::array { 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3 }));
+}
+
+TEST(AudioBuffer, view) {
+    std::array audioSamples { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+    const auto audioBuffer { audio_buffer::makeAudioBuffer<int>(5, 2) };
+    audioBuffer->copyFromRawBuffer(audioSamples.data(), 5, 2, false);
+
+    for (audio_device::ChannelCount_t channel { 0 }; channel < audio_device::ChannelCount_t { 4 }; channel += 2) {
+        auto view { audioBuffer->view(channel, channel + 1) };
+        ASSERT_NE(view.m_leftMono.data(), nullptr);
+        EXPECT_EQ(view.m_leftMono.size(), 2);
+
+        ASSERT_NE(view.m_right.data(), nullptr);
+        EXPECT_EQ(view.m_right.size(), 2);
+
+        for (size_t i { 0 }; i < view.m_leftMono.size(); ++i) {
+            EXPECT_EQ(view.m_leftMono[i], audioSamples[channel * 2 + i]);
+            view.m_leftMono[i] *= 2;
+        }
+
+        for (size_t i { 0 }; i < view.m_right.size(); ++i) {
+            EXPECT_EQ(view.m_right[i], audioSamples[(channel * 2) + i + 2]);
+            view.m_right[i] *= 2;
+        }
+    }
+
+    auto view { audioBuffer->view(4, 5) };
+    ASSERT_NE(view.m_leftMono.data(), nullptr);
+    EXPECT_EQ(view.m_leftMono.size(), 2);
+
+    ASSERT_EQ(view.m_right.data(), nullptr);
+
+    for (size_t i { 0 }; i < view.m_leftMono.size(); ++i) {
+        EXPECT_EQ(view.m_leftMono[i], audioSamples[4 * 2 + i]);
+        view.m_leftMono[i] *= 2;
+    }
+
+    audioBuffer->writeToRawBuffer(audioSamples.data(), 5, 2, false);
+    EXPECT_EQ(audioSamples, (std::array { 2, 4, 6, 8, 10, 12, 14, 16, 18, 20 }));
+
+    view = audioBuffer->view(5);
+    ASSERT_EQ(view.m_leftMono.data(), nullptr);
+    ASSERT_EQ(view.m_right.data(), nullptr);
 }
