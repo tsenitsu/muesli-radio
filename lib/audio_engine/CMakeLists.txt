@@ -32,7 +32,8 @@ FetchContent_MakeAvailable(miniaudio)
 if (MSVC)
     target_compile_options(miniaudio PRIVATE /wd4456 /wd4245)
 else()
-    target_compile_options(miniaudio PRIVATE -Wno-switch -Wno-shadow)
+    target_compile_options(miniaudio PRIVATE -Wno-switch -Wno-shadow -Wno-sign-conversion -Wno-implicit-int-float-conversion
+            -Wno-implicit-int-conversion -Wno-shorten-64-to-32 -Wno-conversion)
 endif()
 
 add_library(audio-engine
@@ -42,6 +43,7 @@ add_library(audio-engine
         audio_stream_params.cpp
         audio_library_wrapper.cpp
         miniaudio_library_wrapper.cpp
+        channel_routing.cpp
 )
 
 target_sources(audio-engine
@@ -56,6 +58,9 @@ target_sources(audio-engine
         audio_buffer_module.cpp
         audio_library_wrapper_module.cpp
         miniaudio_library_wrapper_module.cpp
+        mixer_channel_module.cpp
+        channel_routing_module.cpp
+        audio_mixer_module.cpp
 )
 
 target_link_libraries(audio-engine PRIVATE miniaudio)

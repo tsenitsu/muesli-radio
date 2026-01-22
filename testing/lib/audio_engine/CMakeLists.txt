@@ -6,6 +6,8 @@ add_executable(
   audio_stream_params_tests.cpp
   audio_buffer_tests.cpp
   audio_engine_tests.cpp
+  channel_routing_tests.cpp
+  audio_mixer_tests.cpp
 )
 
 target_link_libraries(
