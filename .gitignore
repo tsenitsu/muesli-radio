@@ -1,2 +1,4 @@
 build
+build-remote-clang
+build-remote-gcc
 .idea
