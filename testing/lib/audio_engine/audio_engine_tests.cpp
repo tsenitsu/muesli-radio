@@ -29,13 +29,14 @@ public:
     using AudioEngine<T>::isBufferLengthAllowed;
     using AudioEngine<T>::openStream;
     using AudioEngine<T>::closeStream;
+    using AudioEngine<T>::processInput;
+    using AudioEngine<T>::processOutput;
 
     using AudioEngine<T>::m_allowedBufferLengths;
     using AudioEngine<T>::m_audioDevices;
     using AudioEngine<T>::m_audioLibraryWrapper;
     using AudioEngine<T>::m_audioStreamParams;
-
-    friend class AudioEngineTest;
+    using AudioEngine<T>::m_processedInputBuffer;
 };
 
 class AudioEngineTest: public testing::Test {
@@ -186,4 +187,141 @@ TEST_F(AudioEngineTest, closeStream) {
     EXPECT_EQ(m_audioEngineMock.closeStream(), true);
     EXPECT_EQ(m_audioEngineMock.closeStream(), true);
     EXPECT_EQ(m_audioEngineMock.closeStream(), false);
+}
+
+TEST_F(AudioEngineTest, process) {
+    EXPECT_CALL(static_cast<AudioLibraryWrapperMock&>(*m_audioEngineMock.m_audioLibraryWrapper), isStreamOpen)
+        .WillRepeatedly(testing::Return(true));
+
+    EXPECT_CALL(static_cast<AudioLibraryWrapperMock&>(*m_audioEngineMock.m_audioLibraryWrapper), isStreamRunning)
+        .WillRepeatedly(testing::Return(true));
+
+    EXPECT_CALL(static_cast<AudioLibraryWrapperMock&>(*m_audioEngineMock.m_audioLibraryWrapper), startStream)
+        .WillRepeatedly(testing::Return(true));
+
+    EXPECT_CALL(static_cast<AudioLibraryWrapperMock&>(*m_audioEngineMock.m_audioLibraryWrapper), stopStream)
+        .WillRepeatedly(testing::Return(true));
+
+    EXPECT_CALL(static_cast<AudioLibraryWrapperMock&>(*m_audioEngineMock.m_audioLibraryWrapper), openStream(testing::_, testing::_))
+        .WillRepeatedly(testing::Return(true));
+
+    EXPECT_CALL(static_cast<AudioLibraryWrapperMock&>(*m_audioEngineMock.m_audioLibraryWrapper), closeStream)
+        .Times(1);
+
+    m_audioEngineMock.m_audioDevices.push_back(makeInputDevice());
+    m_audioEngineMock.m_audioDevices.push_back(makeOutputDevice());
+
+    EXPECT_EQ(m_audioEngineMock.startStream("input", "output", 2048), (std::expected<void, std::string> {}));
+
+    std::array inputSamples { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f };
+    auto inputBuffer { audio_buffer::makeAudioBuffer<float>(audio_device::ChannelCount_t { 2 }, audio_stream_params::BufferLength_t { 5 }) };
+    inputBuffer->copyFromRawBuffer(inputSamples.data(), audio_device::ChannelCount_t { 2 }, audio_stream_params::BufferLength_t { 5 }, false);
+
+    std::array outputSamples { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+    auto outputBuffer { audio_buffer::makeAudioBuffer<float>(audio_device::ChannelCount_t { 2 }, audio_stream_params::BufferLength_t { 5 }) };
+    outputBuffer->copyFromRawBuffer(outputSamples.data(), audio_device::ChannelCount_t { 2 }, audio_stream_params::BufferLength_t { 5 }, false);
+
+    std::array processedInputSamples { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+    auto processedInputBuffer { audio_buffer::makeAudioBuffer<float>(audio_device::ChannelCount_t { 4 }, audio_stream_params::BufferLength_t { 5 }) };
+    processedInputBuffer->copyFromRawBuffer(processedInputSamples.data(), audio_device::ChannelCount_t { 4 }, audio_stream_params::BufferLength_t { 5 }, false);
+    // Swapping because stream was opened with 2048 samples
+    m_audioEngineMock.m_processedInputBuffer.swap(processedInputBuffer);
+    processedInputBuffer = nullptr;
+
+    m_audioEngineMock.processInput(*inputBuffer, *outputBuffer);
+    m_audioEngineMock.m_processedInputBuffer->writeToRawBuffer(processedInputSamples.data(), audio_device::ChannelCount_t { 4 }, audio_stream_params::BufferLength_t { 5 }, false);
+    outputBuffer->writeToRawBuffer(outputSamples.data(),audio_device::ChannelCount_t { 2 }, audio_stream_params::BufferLength_t { 5 }, false);
+    EXPECT_EQ(processedInputSamples, (std::array { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }));
+    EXPECT_EQ(outputSamples, (std::array { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }));
+
+    auto monoRouting { audio_mixer::makeChannelRouting(audio_mixer::Routing_t { 0 }).value() };
+    m_audioEngineMock.m_audioMixer->inputRouting(std::make_pair(*monoRouting, audio_mixer::ChannelRouting {}), 1);
+
+    m_audioEngineMock.m_processedInputBuffer->clear();
+    outputBuffer->clear();
+
+    m_audioEngineMock.processInput(*inputBuffer, *outputBuffer);
+    m_audioEngineMock.m_processedInputBuffer->writeToRawBuffer(processedInputSamples.data(), audio_device::ChannelCount_t { 4 }, audio_stream_params::BufferLength_t { 5 }, false);
+    outputBuffer->writeToRawBuffer(outputSamples.data(),audio_device::ChannelCount_t { 2 }, audio_stream_params::BufferLength_t { 5 }, false);
+    EXPECT_EQ(processedInputSamples, (std::array { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }));
+    EXPECT_EQ(outputSamples, (std::array { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }));
+
+    m_audioEngineMock.m_audioMixer->inputRouting(std::make_pair(*monoRouting, audio_mixer::ChannelRouting {}), 0);
+
+    m_audioEngineMock.m_processedInputBuffer->clear();
+    outputBuffer->clear();
+
+    m_audioEngineMock.processInput(*inputBuffer, *outputBuffer);
+    m_audioEngineMock.m_processedInputBuffer->writeToRawBuffer(processedInputSamples.data(), audio_device::ChannelCount_t { 4 }, audio_stream_params::BufferLength_t { 5 }, false);
+    outputBuffer->writeToRawBuffer(outputSamples.data(),audio_device::ChannelCount_t { 2 }, audio_stream_params::BufferLength_t { 5 }, false);
+    EXPECT_EQ(processedInputSamples, (std::array { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }));
+    EXPECT_EQ(outputSamples, (std::array { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }));
+
+    auto stereoRouting { audio_mixer::makeChannelRouting(audio_mixer::Routing_t { 0 }, audio_mixer::Routing_t { 1 }).value() };
+    m_audioEngineMock.m_audioMixer->inputRouting(std::make_pair(*stereoRouting, audio_mixer::ChannelRouting {}), 1);
+
+    m_audioEngineMock.m_processedInputBuffer->clear();
+    outputBuffer->clear();
+
+    m_audioEngineMock.processInput(*inputBuffer, *outputBuffer);
+    m_audioEngineMock.m_processedInputBuffer->writeToRawBuffer(processedInputSamples.data(), audio_device::ChannelCount_t { 4 }, audio_stream_params::BufferLength_t { 5 }, false);
+    outputBuffer->writeToRawBuffer(outputSamples.data(),audio_device::ChannelCount_t { 2 }, audio_stream_params::BufferLength_t { 5 }, false);
+    EXPECT_EQ(processedInputSamples, (std::array { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f }));
+    EXPECT_EQ(outputSamples, (std::array { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }));
+
+    m_audioEngineMock.m_audioMixer->inputRouting(std::make_pair(*stereoRouting, audio_mixer::ChannelRouting {}), 0);
+
+    m_audioEngineMock.m_processedInputBuffer->clear();
+    outputBuffer->clear();
+
+    m_audioEngineMock.processInput(*inputBuffer, *outputBuffer);
+    m_audioEngineMock.m_processedInputBuffer->writeToRawBuffer(processedInputSamples.data(), audio_device::ChannelCount_t { 4 }, audio_stream_params::BufferLength_t { 5 }, false);
+    outputBuffer->writeToRawBuffer(outputSamples.data(),audio_device::ChannelCount_t { 2 }, audio_stream_params::BufferLength_t { 5 }, false);
+    EXPECT_EQ(processedInputSamples, (std::array { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f }));
+    EXPECT_EQ(outputSamples, (std::array { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }));
+
+    m_audioEngineMock.m_audioMixer->inputRouting(std::make_pair(audio_mixer::ChannelRouting {}, audio_mixer::ChannelRouting {}), 0);
+    m_audioEngineMock.m_audioMixer->inputRouting(std::make_pair(*stereoRouting, *stereoRouting), 1);
+    m_audioEngineMock.m_audioMixer->outputRouting(*stereoRouting, 1);
+
+    m_audioEngineMock.m_processedInputBuffer->clear();
+    outputBuffer->clear();
+
+    m_audioEngineMock.processInput(*inputBuffer, *outputBuffer);
+    m_audioEngineMock.m_processedInputBuffer->writeToRawBuffer(processedInputSamples.data(), audio_device::ChannelCount_t { 4 }, audio_stream_params::BufferLength_t { 5 }, false);
+    outputBuffer->writeToRawBuffer(outputSamples.data(),audio_device::ChannelCount_t { 2 }, audio_stream_params::BufferLength_t { 5 }, false);
+    EXPECT_EQ(processedInputSamples, (std::array { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f }));
+    EXPECT_EQ(outputSamples, (std::array { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f }));
+
+    m_audioEngineMock.m_processedInputBuffer->clear();
+    outputBuffer->clear();
+
+    m_audioEngineMock.m_audioMixer->inputRouting(std::make_pair(*stereoRouting, *stereoRouting), 0);
+
+    m_audioEngineMock.processInput(*inputBuffer, *outputBuffer);
+    m_audioEngineMock.m_processedInputBuffer->writeToRawBuffer(processedInputSamples.data(), audio_device::ChannelCount_t { 4 }, audio_stream_params::BufferLength_t { 5 }, false);
+    outputBuffer->writeToRawBuffer(outputSamples.data(),audio_device::ChannelCount_t { 2 }, audio_stream_params::BufferLength_t { 5 }, false);
+    EXPECT_EQ(processedInputSamples, (std::array { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f }));
+
+    auto expectedResult  { std::array { 2.0f, 4.0f, 6.0f, 8.0f, 10.0f, 12.0f, 14.0f, 16.0f, 18.0f, 20.0f } };
+
+    for (size_t i { 0 }; i < outputSamples.size(); ++i) {
+        EXPECT_NEAR(outputSamples[i], expectedResult[i], std::numeric_limits<float>::epsilon());
+    }
+
+    m_audioEngineMock.m_processedInputBuffer->clear();
+    outputBuffer->clear();
+
+    m_audioEngineMock.m_audioMixer->inputRouting(std::make_pair(*monoRouting, *stereoRouting), 0);
+
+    m_audioEngineMock.processInput(*inputBuffer, *outputBuffer);
+    m_audioEngineMock.m_processedInputBuffer->writeToRawBuffer(processedInputSamples.data(), audio_device::ChannelCount_t { 4 }, audio_stream_params::BufferLength_t { 5 }, false);
+    outputBuffer->writeToRawBuffer(outputSamples.data(),audio_device::ChannelCount_t { 2 }, audio_stream_params::BufferLength_t { 5 }, false);
+    EXPECT_EQ(processedInputSamples, (std::array { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f }));
+
+    expectedResult =  std::array { 2.0f, 4.0f, 6.0f, 8.0f, 10.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f };
+
+    for (size_t i { 0 }; i < outputSamples.size(); ++i) {
+        EXPECT_NEAR(outputSamples[i], expectedResult[i], std::numeric_limits<float>::epsilon());
+    }
 }
