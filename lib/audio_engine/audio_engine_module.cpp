@@ -144,14 +144,10 @@ public:
 protected:
     [[nodiscard]] auto getAudioDevice(const std::string& deviceName, audio_device::AudioDeviceType deviceType) const
                     -> std::expected<std::ranges::borrowed_iterator_t<const std::vector<std::unique_ptr<const audio_device::AudioDevice>> &>, std::string> {
-        auto deviceItr { std::ranges::find_if(m_audioDevices, [&deviceName] (const auto& currentDevice) { return currentDevice->m_deviceName == deviceName; }) };
+        auto deviceItr { std::ranges::find_if(m_audioDevices, [&deviceName, &deviceType] (const auto& currentDevice) { return currentDevice->m_deviceName == deviceName and currentDevice->m_type == deviceType; } ) };
 
         if (deviceItr == std::ranges::end(m_audioDevices)) {
             return std::unexpected { "Audio device not found" };
-        }
-
-        if ((*deviceItr)->m_type != deviceType) {
-            return std::unexpected { "Audio device is not of type provided" };
         }
 
         return deviceItr;

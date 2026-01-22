@@ -80,13 +80,13 @@ TEST_F(AudioEngineTest, getAudioDevice) {
     m_audioEngineMock.m_audioDevices.push_back(makeInputDevice());
 
     EXPECT_EQ(***m_audioEngineMock.getAudioDevice("input", audio_device::AudioDeviceType::Input), *makeInputDevice());
-    EXPECT_EQ(m_audioEngineMock.getAudioDevice("input", audio_device::AudioDeviceType::Output), std::unexpected { "Audio device is not of type provided" });
+    EXPECT_EQ(m_audioEngineMock.getAudioDevice("input", audio_device::AudioDeviceType::Output), std::unexpected { "Audio device not found" });
     EXPECT_EQ(m_audioEngineMock.getAudioDevice("output", audio_device::AudioDeviceType::Output), std::unexpected { "Audio device not found" });
 
     m_audioEngineMock.m_audioDevices.push_back(makeOutputDevice());
 
     EXPECT_EQ(***m_audioEngineMock.getAudioDevice("output", audio_device::AudioDeviceType::Output), *makeOutputDevice());
-    EXPECT_EQ(m_audioEngineMock.getAudioDevice("output", audio_device::AudioDeviceType::Input), std::unexpected { "Audio device is not of type provided" });
+    EXPECT_EQ(m_audioEngineMock.getAudioDevice("output", audio_device::AudioDeviceType::Input), std::unexpected { "Audio device not found" });
     EXPECT_EQ(m_audioEngineMock.getAudioDevice("non existing device", audio_device::AudioDeviceType::Input), std::unexpected { "Audio device not found" });
 }
 
