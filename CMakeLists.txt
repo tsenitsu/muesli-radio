@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.30 FATAL_ERROR)
 
-set(CMAKE_EXPERIMENTAL_CXX_IMPORT_STD "a9e1cf81-9932-4810-974b-6eccaf14e457")
+set(CMAKE_EXPERIMENTAL_CXX_IMPORT_STD "d0edc3af-4c50-42ea-a356-e2862fe7a444")
 set(CMAKE_CXX_MODULE_STD 1)
 
 project(muesli-radio LANGUAGES CXX)
@@ -20,7 +20,7 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug" AND ENABLE_ASAN AND ENABLE_TSAN)
 endif()
 
 if(MSVC)
-   add_compile_options(/W4 /WX)
+   add_compile_options(/W4 /WX /w14242 /w14254 /w14287)
     if (CMAKE_BUILD_TYPE STREQUAL "Debug")
         if (ENABLE_ASAN)
             add_compile_options(/fsanitize=address)
@@ -31,7 +31,7 @@ if(MSVC)
         endif()
     endif()
 else()
-    add_compile_options(-Werror -Wall -Wextra -pedantic -Wshadow)
+    add_compile_options(-Werror -Wall -Wextra -pedantic -Wshadow -Wconversion -Wsign-conversion)
     add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-Wpessimizing-move;-Wredundant-move>")
 
     if(GNU)
