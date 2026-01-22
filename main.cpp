@@ -1,5 +1,5 @@
 /*
- * This program starts a 10 seconds long audio stream by opening the default input and output devices on the system.
+ * This program starts an audio stream by opening the default input and output devices on the system.
  * Beware the Larsen effect: use headphones!
  **/
 
@@ -79,5 +79,34 @@ auto main() -> int {
         return 1;
     }
 
-    std::this_thread::sleep_for(std::chrono::seconds { 10 });
+    std::this_thread::sleep_for(std::chrono::seconds { 3 });
+    std::println("First routing");
+
+    auto leftInputRouting { audio_mixer::makeChannelRouting(audio_mixer::Routing_t { 0 }).value() };
+    auto leftOutputRouting { audio_mixer::makeChannelRouting(audio_mixer::Routing_t { 0 }).value() };
+
+    audioEngine->m_audioMixer->inputRouting(std::make_pair(*leftInputRouting, *leftOutputRouting), 1);
+    audioEngine->m_audioMixer->outputRouting(*leftOutputRouting, 1);
+
+    std::this_thread::sleep_for(std::chrono::seconds { 5 });
+    std::println("Second routing");
+
+    auto silenceRouting { audio_mixer::makeChannelRouting().value() };
+
+    audioEngine->m_audioMixer->inputRouting(std::make_pair(*leftInputRouting, *leftOutputRouting), 0);
+    audioEngine->m_audioMixer->outputRouting(*leftOutputRouting, 0);
+
+    audioEngine->m_audioMixer->inputRouting(std::make_pair(*silenceRouting, *silenceRouting), 1);
+    audioEngine->m_audioMixer->outputRouting(*silenceRouting, 1);
+
+    std::this_thread::sleep_for(std::chrono::seconds { 5 });
+    std::println("Third routing");
+
+    auto stereoInputRouting { audio_mixer::makeChannelRouting(audio_mixer::Routing_t { 0 }, audio_mixer::Routing_t { 1 }). value() };
+    auto stereoOutputRouting { audio_mixer::makeChannelRouting(audio_mixer::Routing_t { 0 }, audio_mixer::Routing_t { 1 }). value() };
+
+    audioEngine->m_audioMixer->inputRouting(std::make_pair(*stereoInputRouting, *stereoOutputRouting), 0);
+    audioEngine->m_audioMixer->outputRouting(*stereoOutputRouting, 0);
+
+    std::this_thread::sleep_for(std::chrono::seconds { 5 });
 }
