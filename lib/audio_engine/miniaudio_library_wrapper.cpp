@@ -76,7 +76,7 @@ auto MiniaudioLibraryWrapper::probeDevices() -> std::expected<std::vector<std::u
         }
 
         if (auto outputDeviceResult { audio_device::makeAudioDevice(audio_device::DeviceId { outputDevices[i].id }, std::string { outputDevices[i].name }, outputDevices[i].isDefault, audio_device::AudioDeviceType::Output, std::move(formats)) }; outputDeviceResult.has_value()) {
-            deviceList.emplace_back(std::move(outputDeviceResult.value()));
+            deviceList.emplace_back(std::move(outputDeviceResult).value());
         } else {
             return std::unexpected { outputDeviceResult.error() };
         }
@@ -104,7 +104,7 @@ auto MiniaudioLibraryWrapper::probeDevices() -> std::expected<std::vector<std::u
         }
 
         if (auto inputDeviceResult { audio_device::makeAudioDevice(audio_device::DeviceId { inputDevices[i].id }, std::string { inputDevices[i].name }, inputDevices[i].isDefault, audio_device::AudioDeviceType::Input, std::move(formats)) }; inputDeviceResult.has_value()) {
-            deviceList.emplace_back(std::move(inputDeviceResult.value()));
+            deviceList.emplace_back(std::move(inputDeviceResult).value());
         } else {
             return std::unexpected { inputDeviceResult.error() };
         }
