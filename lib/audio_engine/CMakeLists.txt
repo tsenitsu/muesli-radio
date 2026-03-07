@@ -12,9 +12,6 @@ set(MINIAUDIO_NO_AAUDIO ON)
 set(MINIAUDIO_NO_OPENSL ON)
 set(MINIAUDIO_NO_WEBAUDIO ON)
 set(MINIAUDIO_NO_CUSTOM ON)
-set(MINIAUDIO_NO_DECODING ON)
-set(MINIAUDIO_NO_ENCODING ON)
-set(MINIAUDIO_NO_WAV ON)
 set(MINIAUDIO_NO_FLAC ON)
 set(MINIAUDIO_NO_MP3 ON)
 set(MINIAUDIO_NO_RESOURCE_MANAGER ON)
@@ -38,12 +35,12 @@ endif()
 
 add_library(audio-engine
         audio_driver.cpp
-        audio_format.cpp
         audio_device.cpp
         audio_stream_params.cpp
         audio_library_wrapper.cpp
         miniaudio_library_wrapper.cpp
         channel_routing.cpp
+        audio_recorder.cpp
 )
 
 target_sources(audio-engine
@@ -61,6 +58,9 @@ target_sources(audio-engine
         mixer_channel_module.cpp
         channel_routing_module.cpp
         audio_mixer_module.cpp
+        ring_audio_buffer_module.cpp
+        audio_writer_module.cpp
+        audio_recorder_module.cpp
 )
 
 target_link_libraries(audio-engine PRIVATE miniaudio)

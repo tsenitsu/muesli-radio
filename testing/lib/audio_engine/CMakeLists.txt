@@ -8,6 +8,9 @@ add_executable(
   audio_engine_tests.cpp
   channel_routing_tests.cpp
   audio_mixer_tests.cpp
+  ring_audio_buffer_tests.cpp
+  audio_writer_tests.cpp
+  audio_recorder_tests.cpp
 )
 
 target_link_libraries(
