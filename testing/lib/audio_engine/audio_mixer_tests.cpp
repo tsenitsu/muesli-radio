@@ -56,6 +56,38 @@ TEST_F(AudioMixerTest, mixerChannelExists) {
     }
 }
 
+TEST_F(AudioMixerTest, inputName) {
+    const std::string inputName { "Input channel" };
+
+    for (audio_device::ChannelCount_t i { 0 }; i < std::ranges::size(m_audioMixerMock.m_inputChannels) + 5; ++i) {
+        m_audioMixerMock.inputName(std::format("{} {}", inputName, i), i);
+    }
+
+    for (audio_device::ChannelCount_t i { 0 }; i < std::ranges::size(m_audioMixerMock.m_inputChannels); ++i) {
+        EXPECT_EQ(m_audioMixerMock.inputName(i), std::format("{} {}", inputName, i));
+    }
+
+    for (auto i { static_cast<audio_device::ChannelCount_t>(std::ranges::size(m_audioMixerMock.m_inputChannels)) }; i < std::ranges::size(m_audioMixerMock.m_inputChannels) + 5; ++i) {
+        EXPECT_EQ(m_audioMixerMock.inputName(i), std::string { "" });
+    }
+}
+
+TEST_F(AudioMixerTest, outputName) {
+    const std::string outputName { "Output channel" };
+
+    for (audio_device::ChannelCount_t i { 0 }; i < std::ranges::size(m_audioMixerMock.m_outputChannels) + 5; ++i) {
+        m_audioMixerMock.outputName(std::format("{} {}", outputName, i), i);
+    }
+
+    for (audio_device::ChannelCount_t i { 0 }; i < std::ranges::size(m_audioMixerMock.m_outputChannels); ++i) {
+        EXPECT_EQ(m_audioMixerMock.outputName(i), std::format("{} {}", outputName, i));
+    }
+
+    for (auto i { static_cast<audio_device::ChannelCount_t>(std::ranges::size(m_audioMixerMock.m_outputChannels)) }; i < std::ranges::size(m_audioMixerMock.m_outputChannels) + 5; ++i) {
+        EXPECT_EQ(m_audioMixerMock.outputName(i), std::string { "" });
+    }
+}
+
 TEST_F(AudioMixerTest, inputGain) {
     constexpr int inputGain { 1 };
 

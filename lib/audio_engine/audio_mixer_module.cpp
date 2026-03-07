@@ -16,10 +16,25 @@ public:
      :  m_inputChannels {},
         m_outputChannels {} {
         std::ranges::generate_n(std::back_inserter(m_inputChannels), inputChannelCount, [] () { return makeMixerChannel<T>(); });
+
+        for (audio_device::ChannelCount_t channel { 0 }; channel < inputChannelCount; ++channel) {
+            m_inputChannels[channel]->name(std::format("Input channel {}", channel));
+        }
+
         std::ranges::generate_n(std::back_inserter(m_outputChannels), outputChannelCount, [] () { return makeMixerChannel<T>(); });
+
+        for (audio_device::ChannelCount_t channel { 0 }; channel < outputChannelCount; ++channel) {
+            m_outputChannels[channel]->name(std::format("Output channel {}", channel));
+        }
     }
 
     virtual ~AudioMixer() = default;
+
+    auto inputName(std::string_view channelName, const audio_device::ChannelCount_t channel) -> void { if (not mixerChannelExists(channel, m_inputChannels)) { return; } m_inputChannels[channel]->name(channelName); }
+    [[nodiscard]] auto inputName(const audio_device::ChannelCount_t channel) const -> std::string { return mixerChannelExists(channel, m_inputChannels)? m_inputChannels[channel]->name(): std::string { "" }; }
+
+    auto outputName(std::string_view channelName, const audio_device::ChannelCount_t channel) -> void { if (not mixerChannelExists(channel, m_outputChannels)) { return; } m_outputChannels[channel]->name(channelName); }
+    [[nodiscard]] auto outputName(const audio_device::ChannelCount_t channel) const -> std::string { return mixerChannelExists(channel, m_outputChannels)? m_outputChannels[channel]->name(): std::string { "" }; }
 
     auto inputGain(const T gain, const audio_device::ChannelCount_t channel) -> void { if (not mixerChannelExists(channel, m_inputChannels)) { return; } m_inputChannels[channel]->gain(gain); }
     [[nodiscard]] auto inputGain(const audio_device::ChannelCount_t channel) const -> T { return mixerChannelExists(channel, m_inputChannels)? m_inputChannels[channel]->gain() : T {}; }

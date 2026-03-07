@@ -10,9 +10,17 @@ namespace audio_engine::audio_mixer {
 export template <typename T> requires std::atomic<T>::is_always_lock_free and std::atomic<SerializedInputOutputRouting_t>::is_always_lock_free
 class MixerChannel final {
 public:
-    MixerChannel(const T gain, const std::pair<ChannelRouting, ChannelRouting>& routing)
-      : m_gain { gain },
+    MixerChannel(std::string_view channelName, const T gain, const std::pair<ChannelRouting, ChannelRouting>& routing)
+      : m_name { channelName },
+        m_gain { gain },
         m_routing { ChannelRoutingSerializer::serializeInputOutput(routing.first, routing.second) } {}
+
+    auto name(std::string_view channelName) -> void {
+        m_name = channelName;
+    }
+    [[nodiscard]] auto name() -> std::string {
+        return m_name;
+    }
 
     auto gain(const T gain) -> void { m_gain.store(gain, std::memory_order_relaxed); }
     [[nodiscard]] auto gain() const -> T { return m_gain.load(std::memory_order_relaxed); }
@@ -39,13 +47,14 @@ public:
     }
 
 private:
+    std::string m_name;
     std::atomic<T> m_gain;
     std::atomic<SerializedInputOutputRouting_t> m_routing;
 };
 
 export template<typename T>
-[[nodiscard]] auto makeMixerChannel(const T gain = T { 1 }, const std::pair<ChannelRouting, ChannelRouting>& routing = std::make_pair(*makeChannelRouting().value(), *makeChannelRouting().value())) -> std::unique_ptr<MixerChannel<T>> {
-    return std::make_unique<MixerChannel<T>>(gain, routing);
+[[nodiscard]] auto makeMixerChannel(std::string_view channelName = "", const T gain = T { 1 }, const std::pair<ChannelRouting, ChannelRouting>& routing = std::make_pair(*makeChannelRouting().value(), *makeChannelRouting().value())) -> std::unique_ptr<MixerChannel<T>> {
+    return std::make_unique<MixerChannel<T>>(channelName, gain, routing);
 }
 
 }
