@@ -26,6 +26,7 @@ struct AudioBufferView {
 
 export template <typename T> using ReadOnlyAudioBufferView = AudioBufferView<const T>;
 
+// AudioBuffer contains non-interleaved data
 export template <class T>
 class AudioBuffer final {
 public:
@@ -61,6 +62,19 @@ public:
         return AudioBufferView<T> { leftMono, right };
     }
 
+    auto resize(const audio_device::ChannelCount_t newChannelCount, const audio_stream_params::BufferLength_t newBufferLength) {
+        if (newChannelCount == numberOfChannels() and newBufferLength == bufferLength()) {
+            clear();
+            return;
+        }
+
+        m_channels.clear();
+        m_buffer.resize(newChannelCount * newBufferLength);
+
+        buildChannels(newChannelCount, newBufferLength);
+        clear();
+    }
+
     auto addFrom(const AudioBuffer& bufferSrc, const  audio_device::ChannelCount_t channelSrc, const  audio_device::ChannelCount_t channelDest) -> void {
         if (not bufferSrc.isChannelAllowed(channelSrc) or not isChannelAllowed(channelDest))
             return;
@@ -94,26 +108,40 @@ public:
         std::ranges::fill(std::ranges::begin(m_channels[channelToClear.value()]), std::ranges::end(m_channels[channelToClear.value()]), static_cast<T>(0));
     }
 
-    auto copyFromRawBuffer(const T* bufferSrc, const audio_device::ChannelCount_t numberOfChannels, const audio_stream_params::BufferLength_t samplesPerChannel, const bool deinterleave = true) -> void {
-        if (bufferSrc == nullptr or m_channels.size() == 0 or not isRawBufferCompatible(numberOfChannels, samplesPerChannel))
+    auto copyFromRawBuffer(const T* bufferSrc, const audio_device::ChannelCount_t numberOfChannels, const audio_stream_params::BufferLength_t samplesPerChannel, const bool deinterleave = true, const audio_stream_params::BufferLength_t offset = 0) -> void {
+        if (bufferSrc == nullptr or m_channels.size() == 0 or not isRawBufferCompatible(numberOfChannels, samplesPerChannel, offset))
             return;
 
         std::span rawBuffer { bufferSrc, numberOfChannels * samplesPerChannel };
 
         if (not deinterleave) {
-            std::ranges::copy(std::ranges::begin(rawBuffer), std::ranges::end(rawBuffer), std::ranges::begin(m_buffer));
+            if (offset == 0) {
+                std::ranges::copy(std::ranges::begin(rawBuffer), std::ranges::end(rawBuffer), std::ranges::begin(m_buffer));
+                return;
+            }
+
+            for (auto currentChannelIdx { audio_device::ChannelCount_t { 0 } }; const auto channel: m_channels) {
+                const auto srcBegin { std::next(std::ranges::begin(rawBuffer), currentChannelIdx * samplesPerChannel) };
+                const auto srcEnd { std::next(srcBegin, samplesPerChannel) };
+
+                const auto destBegin { std::next(std::ranges::begin(channel), offset) };
+                std::ranges::copy(srcBegin, srcEnd, destBegin);
+
+                ++currentChannelIdx;
+            }
+
             return;
         }
 
         for (auto currentSample { static_cast<audio_stream_params::BufferLength_t>(0) }; currentSample < samplesPerChannel; ++currentSample) {
             for (auto currentChannel { static_cast<audio_device::ChannelCount_t>(0) }; currentChannel < numberOfChannels; ++currentChannel) {
-                m_buffer[samplesPerChannel * currentChannel + currentSample] = rawBuffer[currentSample * numberOfChannels + currentChannel];
+                m_buffer[bufferLength() * currentChannel + currentSample + offset] = rawBuffer[currentSample * numberOfChannels + currentChannel];
             }
         }
     }
 
-    auto writeToRawBuffer(T* bufferDest, const audio_device::ChannelCount_t numberOfChannels, const audio_stream_params::BufferLength_t samplesPerChannel, const bool interleave = true) -> void {
-        if (bufferDest == nullptr or m_channels.size() == 0 or not isRawBufferCompatible(numberOfChannels, samplesPerChannel))
+    auto writeToRawBuffer(T* bufferDest, const audio_device::ChannelCount_t numberOfChannels, const audio_stream_params::BufferLength_t samplesPerChannel, const bool interleave = true) const -> void {
+        if (bufferDest == nullptr or m_channels.size() == 0 or not isRawBufferCompatible(numberOfChannels, samplesPerChannel, 0))
             return;
 
         std::span rawBuffer { bufferDest, numberOfChannels * samplesPerChannel };
@@ -166,8 +194,8 @@ protected:
         return channel < m_channels.size();
     }
 
-    [[nodiscard]] auto isRawBufferCompatible(const audio_device::ChannelCount_t numberOfChannels, const audio_stream_params::BufferLength_t samplesPerChannel) const noexcept -> bool {
-        return numberOfChannels == m_channels.size() and samplesPerChannel == m_channels[0].size();
+    [[nodiscard]] auto isRawBufferCompatible(const audio_device::ChannelCount_t numberOfChannels, const audio_stream_params::BufferLength_t samplesPerChannel, const audio_stream_params::BufferLength_t offset) const noexcept -> bool {
+        return numberOfChannels == m_channels.size() and samplesPerChannel + offset <= m_channels[0].size();
     }
 
 private:

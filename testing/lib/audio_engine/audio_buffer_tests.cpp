@@ -189,6 +189,13 @@ TEST(AudioBuffer, deinterleave) {
 
     audioBuffer2->writeToRawBuffer(audioSamples2.data(), 3, 5, false);
     EXPECT_EQ(audioSamples2, (std::array { 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3 }));
+
+    std::array audioSamples3 { 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3 };
+    const auto audioBuffer3 { audio_buffer::makeAudioBuffer<int>(3, 5) };
+    audioBuffer3->copyFromRawBuffer(audioSamples3.data(), 3, 3, true, 2);
+
+    audioBuffer3->writeToRawBuffer(audioSamples3.data(), 3, 5, false);
+    EXPECT_EQ(audioSamples3, (std::array { 0, 0, 1, 1, 1, 0, 0, 2, 2, 2, 0, 0, 3, 3, 3 }));
 }
 
 TEST(AudioBuffer, interleave) {
@@ -205,6 +212,18 @@ TEST(AudioBuffer, interleave) {
 
     audioBuffer2->writeToRawBuffer(audioSamples2.data(), 3, 5, true);
     EXPECT_EQ(audioSamples2, (std::array { 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3 }));
+
+    std::array audioSamples3 { 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3 };
+    // buffer read is { 1, 1, 1, 1, 1, 2, 2, 2, 2 } because 3x3
+    // copied is { 0, 0, 1, 1, 1, 0, 0, 1, 1, 2, 0, 0, 2, 2, 2 }
+    // interleaved is { 0, 0, 0, 0, 0, 0, 1, 1, 2, 1, 1, 2, 1, 2, 2 }
+
+    // Test should be done with a 3x3 support array
+    const auto audioBuffer3 { audio_buffer::makeAudioBuffer<int>(3, 5) };
+    audioBuffer3->copyFromRawBuffer(audioSamples3.data(), 3, 3, false, 2);
+
+    audioBuffer3->writeToRawBuffer(audioSamples3.data(), 3, 5, true);
+    EXPECT_EQ(audioSamples3, (std::array { 0, 0, 0, 0, 0, 0, 1, 1, 2, 1, 1, 2, 1, 2, 2 }));
 }
 
 TEST(AudioBuffer, view) {
@@ -248,4 +267,36 @@ TEST(AudioBuffer, view) {
     view = audioBuffer->view(5);
     ASSERT_EQ(view.m_leftMono.data(), nullptr);
     ASSERT_EQ(view.m_right.data(), nullptr);
+}
+
+TEST(AudioBuffer, resize) {
+    std::array audioSamples { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 };
+    std::array output { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+
+    const auto audioBuffer { audio_buffer::makeAudioBuffer<int>(2, 5) };
+    audioBuffer->copyFromRawBuffer(audioSamples.data(), 2, 5, false);
+
+    audioBuffer->writeToRawBuffer(output.data(), 2, 5, false);
+    EXPECT_EQ(output, (std::array { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 0 }));
+
+    audioBuffer->resize(3, 4);
+    audioBuffer->copyFromRawBuffer(audioSamples.data(), 3, 4, false);
+
+    output.fill(0);
+    audioBuffer->writeToRawBuffer(output.data(), 3, 4, false);
+    EXPECT_EQ(output, (std::array { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 }));
+
+    audioBuffer->resize(4, 3);
+    audioBuffer->copyFromRawBuffer(audioSamples.data(), 4, 3, false);
+
+    output.fill(0);
+    audioBuffer->writeToRawBuffer(output.data(), 4, 3, false);
+    EXPECT_EQ(output, (std::array { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 }));
+
+    audioBuffer->resize(2, 2);
+    audioBuffer->copyFromRawBuffer(audioSamples.data(), 2, 2, false);
+
+    output.fill(0);
+    audioBuffer->writeToRawBuffer(output.data(), 2, 2, false);
+    EXPECT_EQ(output, (std::array { 1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0 }));
 }
