@@ -1,5 +1,5 @@
 /*
- * This program starts an audio stream by opening the default input and output devices on the system.
+ * This program starts an audio stream by opening the default input and output devices on the system and records the audio on disk.
  * Beware the Larsen effect: use headphones!
  **/
 
@@ -79,34 +79,45 @@ auto main() -> int {
         return 1;
     }
 
-    std::this_thread::sleep_for(std::chrono::seconds { 3 });
-    std::println("First routing");
+    auto changeRoutingTask { makeAtomicTask([&audioEngine] () {
+        const auto stereoInputRouting { audio_mixer::makeChannelRouting(audio_mixer::Routing_t { 0 }, audio_mixer::Routing_t { 1 }). value() };
+        const auto stereoOutputRouting { audio_mixer::makeChannelRouting(audio_mixer::Routing_t { 0 }, audio_mixer::Routing_t { 1 }). value() };
 
-    auto leftInputRouting { audio_mixer::makeChannelRouting(audio_mixer::Routing_t { 0 }).value() };
-    auto leftOutputRouting { audio_mixer::makeChannelRouting(audio_mixer::Routing_t { 0 }).value() };
+        audioEngine->audioMixer()->inputRouting(std::make_pair(*stereoInputRouting, *stereoOutputRouting), 0);
+        audioEngine->audioMixer()->outputRouting(*stereoOutputRouting, 0);
+    }) };
 
-    audioEngine->m_audioMixer->inputRouting(std::make_pair(*leftInputRouting, *leftOutputRouting), 1);
-    audioEngine->m_audioMixer->outputRouting(*leftOutputRouting, 1);
+    auto changeRoutingResult { changeRoutingTask->result() } ;
+    taskManager->enqueueTasks(std::move(changeRoutingTask));
+    changeRoutingResult.get();
 
-    std::this_thread::sleep_for(std::chrono::seconds { 5 });
-    std::println("Second routing");
+    auto startRecordingTask { makeAtomicTask([&audioEngine] () {
+        return audioEngine->startRecording(audio_format::AudioFormat::SignedInt24);
+    }) };
 
-    auto silenceRouting { audio_mixer::makeChannelRouting().value() };
+    auto startRecordingResult { startRecordingTask->result() } ;
+    taskManager->enqueueTasks(std::move(startRecordingTask));
 
-    audioEngine->m_audioMixer->inputRouting(std::make_pair(*leftInputRouting, *leftOutputRouting), 0);
-    audioEngine->m_audioMixer->outputRouting(*leftOutputRouting, 0);
+    if (auto result { startRecordingResult.get() }; not result.has_value()) {
+        std::println("Can not start recording: {}", result.error());
+        return 1;
+    }
 
-    audioEngine->m_audioMixer->inputRouting(std::make_pair(*silenceRouting, *silenceRouting), 1);
-    audioEngine->m_audioMixer->outputRouting(*silenceRouting, 1);
-
-    std::this_thread::sleep_for(std::chrono::seconds { 5 });
-    std::println("Third routing");
-
-    auto stereoInputRouting { audio_mixer::makeChannelRouting(audio_mixer::Routing_t { 0 }, audio_mixer::Routing_t { 1 }). value() };
-    auto stereoOutputRouting { audio_mixer::makeChannelRouting(audio_mixer::Routing_t { 0 }, audio_mixer::Routing_t { 1 }). value() };
-
-    audioEngine->m_audioMixer->inputRouting(std::make_pair(*stereoInputRouting, *stereoOutputRouting), 0);
-    audioEngine->m_audioMixer->outputRouting(*stereoOutputRouting, 0);
+    std::println("Started recording");
 
     std::this_thread::sleep_for(std::chrono::seconds { 5 });
+
+    auto writeToFileTask { makeAtomicTask([&audioEngine] () {
+        return audioEngine->write();
+    }) };
+
+    auto writeToFileResult { writeToFileTask->result() };
+    taskManager->enqueueTasks(std::move(writeToFileTask));
+
+    if (auto result { writeToFileResult.get() }; not result) {
+        std::println("Can not write to file");
+        return 1;
+    }
+
+    std::println("Written to file");
 }
