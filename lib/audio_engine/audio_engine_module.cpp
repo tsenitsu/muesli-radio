@@ -9,6 +9,9 @@ export import audio_buffer;
 export import audio_mixer;
 export import audio_channel;
 export import channel_routing;
+export import audio_recorder;
+export import ring_audio_buffer;
+export import audio_format;
 
 import std;
 
@@ -23,6 +26,11 @@ public:
         m_audioDevices { std::vector<std::unique_ptr<const audio_device::AudioDevice>> {} },
         m_audioStreamParams { nullptr },
         m_processedInputBuffer { nullptr },
+        m_inputRingAudioBuffer { nullptr },
+        m_outputRingAudioBuffer { nullptr },
+        m_isRecording { false },
+        m_inputRecorder { nullptr },
+        m_outputRecorder { nullptr },
         m_logCallback { logCallback },
         m_audioCallback { [this] (const audio_buffer::AudioBuffer<float>& inputBuffer, const audio_buffer::AudioBuffer<float>& outputBuffer) {
             process(inputBuffer, outputBuffer);
@@ -117,9 +125,33 @@ public:
             return std::unexpected { std::format("Error creating audio mixer: {}", audioMixerResult.error()) };
         }
 
+        std::unique_ptr<ring_audio_buffer::RingAudioBuffer<float>> inputRingAudioBuffer { nullptr };
+
+        if (inputChannelCount.has_value()) {
+            // 10 seconds of audio in ring buffer
+            if (auto inputRingAudioBufferResult = ring_audio_buffer::makeRingAudioBuffer<float>(inputChannelCount.value(), streamParamsResult.value()->m_sampleRate * 10); not inputRingAudioBufferResult.has_value()) {
+                return std::unexpected { std::format("Error creating input ring audio buffer: {}", inputRingAudioBufferResult.error()) };
+            } else {
+                inputRingAudioBuffer.swap(inputRingAudioBufferResult.value());
+            }
+        }
+
+        std::unique_ptr<ring_audio_buffer::RingAudioBuffer<float>> outputRingAudioBuffer { nullptr };
+
+        if (outputChannelCount.has_value()) {
+            // 10 seconds of audio in ring buffer
+            if (auto outputRingAudioBufferResult = ring_audio_buffer::makeRingAudioBuffer<float>(outputChannelCount.value(), streamParamsResult.value()->m_sampleRate * 10); not outputRingAudioBufferResult.has_value()) {
+                return std::unexpected { std::format("Error creating output ring audio buffer: {}", outputRingAudioBufferResult.error()) };
+            } else {
+               outputRingAudioBuffer.swap(outputRingAudioBufferResult.value());
+            }
+        }
+
         if (not closeStream()) {
             return std::unexpected { "Could not close running stream" };
         }
+
+        stopRecording();
 
         // Audio thread stops here
         m_audioStreamParams.swap(streamParamsResult.value());
@@ -131,6 +163,9 @@ public:
 
         m_audioMixer.swap(audioMixerResult.value());
 
+        m_inputRingAudioBuffer.swap(inputRingAudioBuffer);
+        m_outputRingAudioBuffer.swap(outputRingAudioBuffer);
+
         if (not openStream()) {
             return std::unexpected { "Could not open stream" };
         }
@@ -138,8 +173,103 @@ public:
         return {};
     }
 
-    std::unique_ptr<audio_mixer::AudioMixer<float>> m_audioMixer;
+    [[nodiscard]] auto audioMixer() -> const std::unique_ptr<audio_mixer::AudioMixer<float>>& {
+        return m_audioMixer;
+    }
 
+    [[nodiscard]] auto startRecording(const audio_format::AudioFormat format) -> std::expected<void, std::string> {
+        if (not m_audioLibraryWrapper->isStreamRunning()) {
+            return std::unexpected { "Audio stream is not running" };
+        }
+
+        stopRecording();
+
+        try {
+            const auto& inputParams { dynamic_cast<const audio_stream_params::InputAudioStreamParams&>(*m_audioStreamParams) };
+
+            std::vector<std::string> fileNames {};
+            std::vector<audio_mixer::ChannelRouting> routingList {};
+
+            for (audio_device::ChannelCount_t channel { 0 }; channel < inputParams.m_numberOfInputChannels; ++channel) {
+                fileNames.emplace_back(m_audioMixer->inputName(channel));
+                routingList.push_back(m_audioMixer->inputRouting(channel).first);
+            }
+
+            if (not m_inputRingAudioBuffer) {
+                return std::unexpected { "Input ring audio buffer is null" };
+            }
+
+            if (auto inputAudioRecorder { audio_recorder::makeAudioRecorder(m_audioStreamParams->m_sampleRate, format, fileNames, routingList) }; not inputAudioRecorder.has_value()) {
+                return std::unexpected { std::format("Could not create input audio recorder: {}", inputAudioRecorder.error()) };
+            } else {
+                m_inputRecorder.swap(inputAudioRecorder.value());
+            }
+        } catch ([[maybe_unused]] const std::bad_cast&) {}
+
+        try {
+            const auto& outputParams { dynamic_cast<const audio_stream_params::OutputAudioStreamParams&>(*m_audioStreamParams) };
+
+            std::vector<std::string> fileNames {};
+            std::vector<audio_mixer::ChannelRouting> routingList {};
+
+            for (audio_device::ChannelCount_t channel { 0 }; channel < outputParams.m_numberOfOutputChannels / 2; ++channel) {
+                fileNames.emplace_back(m_audioMixer->outputName(channel));
+                routingList.push_back(m_audioMixer->outputRouting(channel));
+            }
+
+            if (not m_outputRingAudioBuffer) {
+                return std::unexpected { "Output ring audio buffer is null" };
+            }
+
+            if (auto outputAudioRecorder { audio_recorder::makeAudioRecorder(m_audioStreamParams->m_sampleRate, format, fileNames, routingList) }; not outputAudioRecorder.has_value()) {
+                return std::unexpected { std::format("Could not create output audio recorder: {}", outputAudioRecorder.error()) };
+            } else {
+                m_outputRecorder.swap(outputAudioRecorder.value());
+            }
+        } catch ([[maybe_unused]] const std::bad_cast&) {}
+
+        m_isRecording.store(true, std::memory_order_release);
+        return {};
+    }
+
+    auto stopRecording() -> void {
+        m_isRecording.store(false, std::memory_order_release);
+
+        m_inputRecorder.reset();
+        m_outputRecorder.reset();
+    }
+
+    [[nodiscard]] auto write() const -> bool {
+        if (not m_isRecording.load(std::memory_order_acquire)) {
+            return false;
+        }
+
+        if (m_inputRecorder) {
+            const auto audioBuffer { audio_buffer::makeAudioBuffer<float>(0, 0) };
+
+            if (not m_inputRingAudioBuffer->dequeue(*audioBuffer)) {
+                return false;
+            }
+
+            if (not m_inputRecorder->write(*audioBuffer)) {
+                return false;
+            }
+        }
+
+        if (m_outputRecorder) {
+             const auto audioBuffer { audio_buffer::makeAudioBuffer<float>(0, 0) };
+
+            if (not m_outputRingAudioBuffer->dequeue(*audioBuffer)) {
+                return false;
+            }
+
+            if (not m_outputRecorder->write(*audioBuffer)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
 protected:
     [[nodiscard]] auto getAudioDevice(const std::string& deviceName, audio_device::AudioDeviceType deviceType) const
@@ -235,7 +365,18 @@ protected:
         if (m_processedInputBuffer)
             m_processedInputBuffer->clear();
 
+        const auto isRecording { m_isRecording.load(std::memory_order_acquire) };
+
+        if (m_inputRingAudioBuffer && isRecording) {
+            std::ignore = m_inputRingAudioBuffer->enqueue(inputBuffer);
+        }
+
         processInput(inputBuffer, outputBuffer);
+
+        if (m_outputRingAudioBuffer && isRecording) {
+            std::ignore = m_outputRingAudioBuffer->enqueue(outputBuffer);
+        }
+
         processOutput(outputBuffer);
     }
 
@@ -244,10 +385,16 @@ protected:
     static constexpr audio_stream_params::PeriodSize_t m_periodSize { 3 };
     static constexpr std::array<const audio_stream_params::BufferLength_t, 5> m_allowedBufferLengths { 1024, 2048, 4096, 8192, 16384 };
 
+    std::unique_ptr<audio_mixer::AudioMixer<float>> m_audioMixer;
     std::unique_ptr<audio_library_wrapper::AudioLibraryWrapper> m_audioLibraryWrapper;
     std::vector<std::unique_ptr<const audio_device::AudioDevice>> m_audioDevices;
     std::unique_ptr<audio_stream_params::AudioStreamParams> m_audioStreamParams;
     std::unique_ptr<audio_buffer::AudioBuffer<float>> m_processedInputBuffer;
+    std::unique_ptr<ring_audio_buffer::RingAudioBuffer<float>> m_inputRingAudioBuffer;
+    std::unique_ptr<ring_audio_buffer::RingAudioBuffer<float>> m_outputRingAudioBuffer;
+    std::atomic_bool m_isRecording;
+    std::unique_ptr<audio_recorder::AudioRecorder> m_inputRecorder;
+    std::unique_ptr<audio_recorder::AudioRecorder> m_outputRecorder;
 
 private:
     audio_library_wrapper::LogCallback m_logCallback;

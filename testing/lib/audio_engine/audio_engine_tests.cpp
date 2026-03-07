@@ -30,13 +30,17 @@ public:
     using AudioEngine<T>::openStream;
     using AudioEngine<T>::closeStream;
     using AudioEngine<T>::processInput;
-    using AudioEngine<T>::processOutput;
+    using AudioEngine<T>::process;
 
     using AudioEngine<T>::m_allowedBufferLengths;
     using AudioEngine<T>::m_audioDevices;
     using AudioEngine<T>::m_audioLibraryWrapper;
     using AudioEngine<T>::m_audioStreamParams;
     using AudioEngine<T>::m_processedInputBuffer;
+    using AudioEngine<T>::m_audioMixer;
+    using AudioEngine<T>::m_inputRingAudioBuffer;
+    using AudioEngine<T>::m_outputRingAudioBuffer;
+    using AudioEngine<T>::m_isRecording;
 };
 
 class AudioEngineTest: public testing::Test {
@@ -134,7 +138,10 @@ TEST_F(AudioEngineTest, startStream) {
     EXPECT_EQ(m_audioEngineMock.startStream(std::nullopt, "output", 2048), std::unexpected { std::string { "Could not find output device output: Audio device not found" } });
 
     m_audioEngineMock.m_audioDevices.push_back(makeInputDevice());
+    const auto inputChannels { m_audioEngineMock.m_audioDevices[0]->m_nativeDataFormats[0].m_channels };
+
     m_audioEngineMock.m_audioDevices.push_back(makeOutputDevice());
+    const auto outputChannels { m_audioEngineMock.m_audioDevices[1]->m_nativeDataFormats[0].m_channels };
 
     EXPECT_EQ(m_audioEngineMock.startStream("input", std::nullopt, 2048), std::unexpected { std::string { "Could not close running stream" } });
     EXPECT_EQ(m_audioEngineMock.startStream("input", std::nullopt, 2048), (std::expected<void, std::string> {}));
@@ -142,6 +149,17 @@ TEST_F(AudioEngineTest, startStream) {
     EXPECT_EQ(m_audioEngineMock.startStream(std::nullopt, "output", 2048), (std::expected<void, std::string> {}));
     EXPECT_EQ(m_audioEngineMock.startStream("input", "output", 2048), std::unexpected { std::string { "Could not close running stream" } });
     EXPECT_EQ(m_audioEngineMock.startStream("input", "output", 2048), (std::expected<void, std::string> {}));
+
+    for (audio_device::ChannelCount_t channel { 0 }; channel < inputChannels; ++channel) {
+        const std::string& inputChannelName { std::format ("Input channel {}", channel) };
+        EXPECT_EQ(m_audioEngineMock.m_audioMixer->inputName(channel), inputChannelName);
+    }
+
+    // Output channels are stereo, so we have to divide by 2
+    for (audio_device::ChannelCount_t channel { 0 }; channel < outputChannels / 2; ++channel) {
+        const std::string& outputChannelName { std::format ("Output channel {}", channel) };
+        EXPECT_EQ(m_audioEngineMock.m_audioMixer->outputName(channel), outputChannelName);
+    }
 }
 
 TEST_F(AudioEngineTest, openStream) {
@@ -323,5 +341,44 @@ TEST_F(AudioEngineTest, process) {
 
     for (size_t i { 0 }; i < outputSamples.size(); ++i) {
         EXPECT_NEAR(outputSamples[i], expectedResult[i], std::numeric_limits<float>::epsilon());
+    }
+
+    m_audioEngineMock.m_isRecording = true;
+
+    outputBuffer->clear();
+    m_audioEngineMock.process(*inputBuffer, *outputBuffer);
+    outputBuffer->clear();
+    m_audioEngineMock.process(*inputBuffer, *outputBuffer);
+    outputBuffer->clear();
+    m_audioEngineMock.process(*inputBuffer, *outputBuffer);
+
+    std::array expectedInputRingAudioBuffer {
+        1.0f,2.0f,3.0f,4.0f,5.0f,  1.0f,2.0f,3.0f,4.0f,5.0f,  1.0f,2.0f,3.0f,4.0f,5.0f,   // ch0
+        6.0f,7.0f,8.0f,9.0f,10.0f, 6.0f,7.0f,8.0f,9.0f,10.0f, 6.0f,7.0f,8.0f,9.0f,10.0f   // ch1
+    };
+
+    std::array expectedOutputRingAudioBuffer {
+        2.0f,4.0f,6.0f,8.0f,10.0f, 2.0f,4.0f,6.0f,8.0f,10.0f, 2.0f,4.0f,6.0f,8.0f,10.0f,  // ch0
+        6.0f,7.0f,8.0f,9.0f,10.0f, 6.0f,7.0f,8.0f,9.0f,10.0f, 6.0f,7.0f,8.0f,9.0f,10.0f   // ch1
+    };
+
+    std::array<float, 30> rawInputRingAudioBuffer {};
+    std::array<float, 30> rawOutputRingAudioBuffer {};
+
+    auto inputRingAudioBuffer { audio_buffer::makeAudioBuffer<float>(2, 0) };
+    auto outputRingAudioBuffer { audio_buffer::makeAudioBuffer<float>(2, 0) };
+
+    EXPECT_TRUE(m_audioEngineMock.m_inputRingAudioBuffer->dequeue(*inputRingAudioBuffer));
+    EXPECT_TRUE(m_audioEngineMock.m_outputRingAudioBuffer->dequeue(*outputRingAudioBuffer));
+
+    inputRingAudioBuffer->writeToRawBuffer(rawInputRingAudioBuffer.data(), 2, 15, false);
+    outputRingAudioBuffer->writeToRawBuffer(rawOutputRingAudioBuffer.data(), 2, 15, false);
+
+    for (size_t i { 0 }; i < expectedInputRingAudioBuffer.size(); ++i) {
+        EXPECT_NEAR(rawInputRingAudioBuffer[i], expectedInputRingAudioBuffer[i], std::numeric_limits<float>::epsilon()) << i;
+    }
+
+    for (size_t i { 0 }; i < expectedOutputRingAudioBuffer.size(); ++i) {
+        EXPECT_NEAR(rawOutputRingAudioBuffer[i], expectedOutputRingAudioBuffer[i], std::numeric_limits<float>::epsilon());
     }
 }
