@@ -160,7 +160,8 @@ public:
 
     [[nodiscard]] auto computeStats(const audio_device::ChannelCount_t channel) const -> std::tuple<T, T, float> {
         auto min { std::numeric_limits<T>::max() };
-        auto max { std::numeric_limits<T>::min() };
+        // Do not use ::min() because when using floating point values, it gives the minimum positive
+        auto max { std::numeric_limits<T>::lowest() };
         auto rms { float { 0.0f } };
 
         if (isChannelAllowed(channel) and bufferLength() != 0) {
