@@ -326,4 +326,12 @@ TEST(AudioBuffer, computeStats) {
         EXPECT_EQ(max, std::numeric_limits<int>::min());
         EXPECT_EQ(rms, 0.0f);
     }
+
+    {
+        const auto emptyBuffer { audio_buffer::makeAudioBuffer<int>(2, 0) };
+        const auto [min, max, rms] { emptyBuffer->computeStats(0) };
+        EXPECT_EQ(min, std::numeric_limits<int>::max());
+        EXPECT_EQ(max, std::numeric_limits<int>::min());
+        EXPECT_EQ(rms, 0.0f);
+    }
 }

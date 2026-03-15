@@ -163,7 +163,7 @@ public:
         auto max { std::numeric_limits<T>::min() };
         auto rms { float { 0.0f } };
 
-        if (isChannelAllowed(channel) or bufferLength() == 0) {
+        if (isChannelAllowed(channel) and bufferLength() != 0) {
             auto squareSum { 0.0 };
 
             for (const auto sample: m_channels[channel]) {
