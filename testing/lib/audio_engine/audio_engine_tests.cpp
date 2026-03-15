@@ -41,6 +41,8 @@ public:
     using AudioEngine<T>::m_inputRingAudioBuffer;
     using AudioEngine<T>::m_outputRingAudioBuffer;
     using AudioEngine<T>::m_isRecording;
+    using AudioEngine<T>::m_inputAudioStats;
+    using AudioEngine<T>::m_outputAudioStats;
 };
 
 class AudioEngineTest: public testing::Test {
@@ -160,6 +162,9 @@ TEST_F(AudioEngineTest, startStream) {
         const std::string& outputChannelName { std::format ("Output channel {}", channel) };
         EXPECT_EQ(m_audioEngineMock.m_audioMixer->outputName(channel), outputChannelName);
     }
+
+    EXPECT_EQ(m_audioEngineMock.m_inputAudioStats.size(), inputChannels);
+    EXPECT_EQ(m_audioEngineMock.m_outputAudioStats.size(), outputChannels);
 }
 
 TEST_F(AudioEngineTest, openStream) {
@@ -351,6 +356,22 @@ TEST_F(AudioEngineTest, process) {
     m_audioEngineMock.process(*inputBuffer, *outputBuffer);
     outputBuffer->clear();
     m_audioEngineMock.process(*inputBuffer, *outputBuffer);
+
+    for (auto channel { audio_device::ChannelCount_t { 0 } }; channel < inputBuffer->numberOfChannels(); ++channel) {
+        const auto [min, max, rms] { inputBuffer->computeStats(channel) };
+
+        EXPECT_NEAR(min, m_audioEngineMock.m_inputAudioStats[channel]->min(), std::numeric_limits<float>::epsilon());
+        EXPECT_NEAR(max, m_audioEngineMock.m_inputAudioStats[channel]->max(), std::numeric_limits<float>::epsilon());
+        EXPECT_NEAR(rms, m_audioEngineMock.m_inputAudioStats[channel]->rms(), std::numeric_limits<float>::epsilon());
+    }
+
+    for (auto channel { audio_device::ChannelCount_t { 0 } }; channel < outputBuffer->numberOfChannels(); ++channel) {
+        const auto [min, max, rms] { outputBuffer->computeStats(channel) };
+
+        EXPECT_NEAR(min, m_audioEngineMock.m_outputAudioStats[channel]->min(), std::numeric_limits<float>::epsilon());
+        EXPECT_NEAR(max, m_audioEngineMock.m_outputAudioStats[channel]->max(), std::numeric_limits<float>::epsilon());
+        EXPECT_NEAR(rms, m_audioEngineMock.m_outputAudioStats[channel]->rms(), std::numeric_limits<float>::epsilon());
+    }
 
     std::array expectedInputRingAudioBuffer {
         1.0f,2.0f,3.0f,4.0f,5.0f,  1.0f,2.0f,3.0f,4.0f,5.0f,  1.0f,2.0f,3.0f,4.0f,5.0f,   // ch0

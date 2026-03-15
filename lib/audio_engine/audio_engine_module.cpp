@@ -31,6 +31,8 @@ public:
         m_isRecording { false },
         m_inputRecorder { nullptr },
         m_outputRecorder { nullptr },
+        m_inputAudioStats { std::vector<std::unique_ptr<audio_buffer::AudioStats<float>>> {} },
+        m_outputAudioStats { std::vector<std::unique_ptr<audio_buffer::AudioStats<float>>> {} },
         m_logCallback { logCallback },
         m_audioCallback { [this] (const audio_buffer::AudioBuffer<float>& inputBuffer, const audio_buffer::AudioBuffer<float>& outputBuffer) {
             process(inputBuffer, outputBuffer);
@@ -147,6 +149,12 @@ public:
             }
         }
 
+        std::vector<std::unique_ptr<audio_buffer::AudioStats<float>>> inputAudioStats {};
+        std::ranges::generate_n(std::back_inserter(inputAudioStats), inputChannelCount.value_or(0), [] () { return audio_buffer::makeAudioStats<float>(); });
+
+        std::vector<std::unique_ptr<audio_buffer::AudioStats<float>>> outputAudioStats {};
+        std::ranges::generate_n(std::back_inserter(outputAudioStats), outputChannelCount.value_or(0), [] () { return audio_buffer::makeAudioStats<float>(); });
+
         if (not closeStream()) {
             return std::unexpected { "Could not close running stream" };
         }
@@ -165,6 +173,9 @@ public:
 
         m_inputRingAudioBuffer.swap(inputRingAudioBuffer);
         m_outputRingAudioBuffer.swap(outputRingAudioBuffer);
+
+        m_inputAudioStats.swap(inputAudioStats);
+        m_outputAudioStats.swap(outputAudioStats);
 
         if (not openStream()) {
             return std::unexpected { "Could not open stream" };
@@ -371,10 +382,30 @@ protected:
             std::ignore = m_inputRingAudioBuffer->enqueue(inputBuffer);
         }
 
+        for (auto channel { audio_device::ChannelCount_t { 0 } }; channel < inputBuffer.numberOfChannels(); ++channel) {
+            const auto [min, max, rms] { inputBuffer.computeStats(channel) };
+
+            auto& stats { *m_inputAudioStats[channel] };
+
+            stats.min(min);
+            stats.max(max);
+            stats.rms(rms);
+        }
+
         processInput(inputBuffer, outputBuffer);
 
         if (m_outputRingAudioBuffer && isRecording) {
             std::ignore = m_outputRingAudioBuffer->enqueue(outputBuffer);
+        }
+
+        for (auto channel { audio_device::ChannelCount_t { 0 } }; channel < outputBuffer.numberOfChannels(); ++channel) {
+            const auto [min, max, rms] { outputBuffer.computeStats(channel) };
+
+            auto& stats { *m_outputAudioStats[channel] };
+
+            stats.min(min);
+            stats.max(max);
+            stats.rms(rms);
         }
 
         processOutput(outputBuffer);
@@ -395,6 +426,8 @@ protected:
     std::atomic_bool m_isRecording;
     std::unique_ptr<audio_recorder::AudioRecorder> m_inputRecorder;
     std::unique_ptr<audio_recorder::AudioRecorder> m_outputRecorder;
+    std::vector<std::unique_ptr<audio_buffer::AudioStats<float>>> m_inputAudioStats;
+    std::vector<std::unique_ptr<audio_buffer::AudioStats<float>>> m_outputAudioStats;
 
 private:
     audio_library_wrapper::LogCallback m_logCallback;

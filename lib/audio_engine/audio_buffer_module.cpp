@@ -158,6 +158,29 @@ public:
         }
     }
 
+    [[nodiscard]] auto computeStats(const audio_device::ChannelCount_t channel) const -> std::tuple<T, T, float> {
+        auto min { std::numeric_limits<T>::max() };
+        auto max { std::numeric_limits<T>::min() };
+        auto rms { float { 0.0f } };
+
+        if (isChannelAllowed(channel) or bufferLength() == 0) {
+            auto squareSum { 0.0 };
+
+            for (const auto sample: m_channels[channel]) {
+                min = std::min(min, sample);
+                max = std::max(max, sample);
+
+                const auto doubleSample { static_cast<double>(sample) };
+
+                squareSum += doubleSample * doubleSample;
+            }
+
+            rms = static_cast<float>(std::sqrt(squareSum / bufferLength()));
+        }
+
+        return std::make_tuple(min, max, rms);
+    }
+
     AudioBuffer<T>& operator= (const AudioBuffer<T>& otherBuffer) {
         if (this == &otherBuffer)
             return *this;
@@ -208,6 +231,50 @@ auto makeAudioBuffer(const audio_device::ChannelCount_t numberOfChannels,
                     const audio_stream_params::BufferLength_t  samplesPerChannel) -> std::unique_ptr<AudioBuffer<T>> {
 
     return std::make_unique<AudioBuffer<T>>(numberOfChannels, samplesPerChannel);
+}
+
+export template <typename T> requires std::is_arithmetic_v<T>
+class AudioStats final {
+public:
+    AudioStats (const T min, const T max, const float rms)
+     :  m_min { min },
+        m_max { max },
+        m_rms { rms } {}
+
+    auto min(const T min) -> void {
+        return m_min.store(min, std::memory_order_relaxed);
+    }
+
+    auto max(const T max) -> void {
+        return m_max.store(max, std::memory_order_relaxed);
+    }
+
+    auto rms(const float rms) -> void {
+        return m_rms.store(rms, std::memory_order_relaxed);
+    }
+
+    [[nodiscard]] auto min() const -> T {
+        return m_min.load(std::memory_order_relaxed);
+    }
+
+    [[nodiscard]] auto max() const -> T {
+        return m_max.load(std::memory_order_relaxed);
+    }
+
+    [[nodiscard]] auto rms() const -> float {
+        return m_rms.load(std::memory_order_relaxed);
+    }
+
+private:
+    std::atomic<T> m_min;
+    std::atomic<T> m_max;
+    std::atomic<float> m_rms;
+};
+
+
+export template <typename T>
+[[nodiscard]] auto makeAudioStats(const T min = T { 0 }, const T max = T { 0 }, const float rms = 0.0f) -> std::unique_ptr<AudioStats<T>> {
+    return std::make_unique<AudioStats<T>>(min, max, rms);
 }
 
 }

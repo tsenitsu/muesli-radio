@@ -270,7 +270,7 @@ TEST(AudioBuffer, view) {
 }
 
 TEST(AudioBuffer, resize) {
-    std::array audioSamples { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 };
+    constexpr std::array audioSamples { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 };
     std::array output { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
     const auto audioBuffer { audio_buffer::makeAudioBuffer<int>(2, 5) };
@@ -299,4 +299,31 @@ TEST(AudioBuffer, resize) {
     output.fill(0);
     audioBuffer->writeToRawBuffer(output.data(), 2, 2, false);
     EXPECT_EQ(output, (std::array { 1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0 }));
+}
+
+TEST(AudioBuffer, computeStats) {
+    constexpr std::array audioSamples { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 };
+    const auto audioBuffer { audio_buffer::makeAudioBuffer<int>(2, 6) };
+    audioBuffer->copyFromRawBuffer(audioSamples.data(), 2, 6, false);
+
+    {
+        const auto [min, max, rms] { audioBuffer->computeStats(0) };
+        EXPECT_EQ(min, 1);
+        EXPECT_EQ(max, 6);
+        EXPECT_NEAR(rms, 3.894440481849308f, std::numeric_limits<float>::epsilon());
+    }
+
+    {
+        const auto [min, max, rms] { audioBuffer->computeStats(1) };
+        EXPECT_EQ(min, 7);
+        EXPECT_EQ(max, 12);
+        EXPECT_NEAR(rms, 9.652288157046839f, std::numeric_limits<float>::epsilon());
+    }
+
+    {
+        const auto [min, max, rms] { audioBuffer->computeStats(2) };
+        EXPECT_EQ(min, std::numeric_limits<int>::max());
+        EXPECT_EQ(max, std::numeric_limits<int>::min());
+        EXPECT_EQ(rms, 0.0f);
+    }
 }
