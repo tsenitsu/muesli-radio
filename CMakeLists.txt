@@ -56,7 +56,7 @@ endif()
 add_subdirectory(lib)
 
 add_executable(muesli-radio main.cpp)
-target_link_libraries(muesli-radio PRIVATE audio-engine async-task-scheduler)
+target_link_libraries(muesli-radio PRIVATE audio-engine async-task-scheduler managers)
 
 enable_testing()
 add_subdirectory(testing)

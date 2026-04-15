@@ -6,7 +6,7 @@
 import std;
 
 import audio_engine;
-using namespace audio_engine;
+import audio_engine_manager;
 
 import async_task_scheduler;
 import task_manager;
@@ -21,32 +21,22 @@ auto main() -> int {
         asyncTaskScheduler.swap(asyncTaskSchedulerResult.value());
     }
 
-    auto taskManager { makeTaskManager(*asyncTaskScheduler) };
-
-    std::unique_ptr<AudioEngine<audio_library_wrapper::MiniaudioLibraryWrapper>> audioEngine { nullptr };
-
-    if (auto audioEngineResult { makeAudioEngine<audio_library_wrapper::MiniaudioLibraryWrapper>([] (const std::string& log) { std::print("{}", log); }) };
-        not audioEngineResult.has_value()) {
-        std::println("Cannot create audio engine: {}", audioEngineResult.error());
+    std::unique_ptr<managers::AudioEngineManager> audioEngineManager { nullptr };
+    if (auto audioEngineManagerResult { managers::makeAudioEngineManager(*asyncTaskScheduler, [] (const std::string& log) { std::print("{}", log); }) };
+        not audioEngineManagerResult.has_value()) {
+        std::println("Cannot create audio engine: {}", audioEngineManagerResult.error());
         return 1;
     } else {
-        audioEngine.swap(audioEngineResult.value());
+        audioEngineManager.swap(audioEngineManagerResult.value());
     }
 
-    auto probeDevicesTask { makeAtomicTask([&audioEngine] () { return audioEngine->probeDevices(); }) };
-    auto probeDevicesResult { probeDevicesTask->result() };
-
-    taskManager->enqueueTasks(std::move(probeDevicesTask));
-
+    auto probeDevicesResult { audioEngineManager->probeDevices() };
     if (auto result { probeDevicesResult.get() }; not result.has_value()) {
         std::println("Cannot probe devices: {}", result.error());
         return 1;
     }
 
-    auto inputDeviceNameTask { makeAtomicTask([&audioEngine] () { return audioEngine->defaultInputAudioDeviceName(); }) };
-    auto inputDeviceNameResult { inputDeviceNameTask->result() };
-
-    taskManager->enqueueTasks(std::move(inputDeviceNameTask));
+    auto inputDeviceNameResult { audioEngineManager->defaultInputAudioDeviceName() };
 
     std::string inputDeviceName { "" };
     if (auto result { inputDeviceNameResult.get() }; not result.has_value()) {
@@ -56,10 +46,7 @@ auto main() -> int {
         inputDeviceName.swap(result.value());
     }
 
-    auto outputDeviceNameTask { makeAtomicTask([&audioEngine] () { return audioEngine->defaultAudioOutputDeviceName(); }) };
-    auto outputDeviceNameResult { outputDeviceNameTask->result() };
-
-    taskManager->enqueueTasks(std::move(outputDeviceNameTask));
+    auto outputDeviceNameResult { audioEngineManager->defaultOutputAudioDeviceName() };
 
     std::string outputDeviceName { "" };
     if (auto result { outputDeviceNameResult.get() }; not result.has_value()) {
@@ -69,55 +56,30 @@ auto main() -> int {
         outputDeviceName.swap(result.value());
     }
 
-    auto startStreamTask { makeAtomicTask([&audioEngine, &inputDeviceName, &outputDeviceName] () { return audioEngine->startStream(inputDeviceName, outputDeviceName, 2048); }) } ;
-    auto startStreamResult { startStreamTask->result() } ;
-
-    taskManager->enqueueTasks(std::move(startStreamTask));
+    auto startStreamResult { audioEngineManager->startStream(inputDeviceName, outputDeviceName, 2048) };
 
     if (auto result { startStreamResult.get() }; not result.has_value()) {
         std::println("Cannot start stream: {}", result.error());
         return 1;
     }
 
-    auto changeRoutingTask { makeAtomicTask([&audioEngine] () {
-        const auto stereoInputRouting { audio_mixer::makeChannelRouting(audio_mixer::Routing_t { 0 }, audio_mixer::Routing_t { 1 }). value() };
-        const auto stereoOutputRouting { audio_mixer::makeChannelRouting(audio_mixer::Routing_t { 0 }, audio_mixer::Routing_t { 1 }). value() };
+    const auto stereoInputRouting { audio_engine::audio_mixer::makeChannelRouting(audio_engine::audio_mixer::Routing_t { 0 }, audio_engine::audio_mixer::Routing_t { 1 }).value() };
+    const auto stereoOutputRouting { audio_engine::audio_mixer::makeChannelRouting(audio_engine::audio_mixer::Routing_t { 0 }, audio_engine::audio_mixer::Routing_t { 1 }).value() };
 
-        audioEngine->audioMixer()->inputRouting(std::make_pair(*stereoInputRouting, *stereoOutputRouting), 0);
-        audioEngine->audioMixer()->outputRouting(*stereoOutputRouting, 0);
-    }) };
+    audioEngineManager->inputChannelRouting(std::make_pair(*stereoInputRouting, *stereoOutputRouting), 0);
+    audioEngineManager->outputChannelRouting(*stereoOutputRouting, 0);
 
-    auto changeRoutingResult { changeRoutingTask->result() } ;
-    taskManager->enqueueTasks(std::move(changeRoutingTask));
-    changeRoutingResult.get();
+    const auto startRecordingResult { audioEngineManager->startRecording(audio_engine::audio_format::AudioFormat::SignedInt24) };
 
-    auto startRecordingTask { makeAtomicTask([&audioEngine] () {
-        return audioEngine->startRecording(audio_format::AudioFormat::SignedInt24);
-    }) };
-
-    auto startRecordingResult { startRecordingTask->result() } ;
-    taskManager->enqueueTasks(std::move(startRecordingTask));
-
-    if (auto result { startRecordingResult.get() }; not result.has_value()) {
-        std::println("Can not start recording: {}", result.error());
+    if (not startRecordingResult.has_value()) {
+        std::println("Can not start recording: {}", startRecordingResult.error());
         return 1;
     }
 
     std::println("Started recording");
 
-    std::this_thread::sleep_for(std::chrono::seconds { 5 });
-
-    auto writeToFileTask { makeAtomicTask([&audioEngine] () {
-        return audioEngine->write();
-    }) };
-
-    auto writeToFileResult { writeToFileTask->result() };
-    taskManager->enqueueTasks(std::move(writeToFileTask));
-
-    if (auto result { writeToFileResult.get() }; not result) {
-        std::println("Can not write to file");
-        return 1;
-    }
+    std::cin.get();
+    audioEngineManager->stopRecording();
 
     std::println("Written to file");
 }
