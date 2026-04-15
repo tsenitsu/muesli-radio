@@ -7,7 +7,7 @@ import async_task_scheduler;
 
 namespace async_task_scheduler {
 
-class TaskManager final {
+export class TaskManager {
 public:
     template <typename... Task> requires (std::is_convertible_v<Task, std::unique_ptr<AsyncTask>> && ...) and (sizeof...(Task) > 0)
     auto enqueueTasks(Task&&... tasks) -> void {
@@ -31,6 +31,8 @@ public:
      :  m_scheduler { scheduler },
         m_concurrencyLevel { m_scheduler.concurrencyLevel() },
         m_threadId { 0 } {}
+
+    virtual ~TaskManager() = default;
 
 private:
     auto updateThreadId() -> void { m_threadId = (m_threadId + 1) % m_scheduler.concurrencyLevel(); }
