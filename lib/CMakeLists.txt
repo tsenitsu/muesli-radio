@@ -1,2 +1,3 @@
 add_subdirectory(audio_engine)
 add_subdirectory(async_task_scheduler)
+add_subdirectory(managers)
