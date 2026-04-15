@@ -22,7 +22,6 @@ class AudioEngine {
 public:
     explicit AudioEngine(const audio_library_wrapper::LogCallback& logCallback, const audio_driver::AudioDriver newAudioDriver = audio_driver::availableAudioDrivers[0])
      :  m_audioMixer { nullptr },
-        m_audioLibraryWrapper { nullptr },
         m_audioDevices { std::vector<std::unique_ptr<const audio_device::AudioDevice>> {} },
         m_audioStreamParams { nullptr },
         m_processedInputBuffer { nullptr },
@@ -33,6 +32,7 @@ public:
         m_outputRecorder { nullptr },
         m_inputAudioStats { std::vector<std::unique_ptr<audio_buffer::AudioStats<float>>> {} },
         m_outputAudioStats { std::vector<std::unique_ptr<audio_buffer::AudioStats<float>>> {} },
+        m_audioLibraryWrapper { nullptr },
         m_logCallback { logCallback },
         m_audioCallback { [this] (const audio_buffer::AudioBuffer<float>& inputBuffer, const audio_buffer::AudioBuffer<float>& outputBuffer) {
             process(inputBuffer, outputBuffer);
@@ -74,7 +74,7 @@ public:
         return getDefaultAudioDevice(audio_device::AudioDeviceType::Input).transform([] (const auto&& deviceItr) {return (*deviceItr)->m_deviceName; });
     }
 
-    [[nodiscard]] auto defaultAudioOutputDeviceName() const -> std::expected<std::string, std::string> {
+    [[nodiscard]] auto defaultOutputAudioDeviceName() const -> std::expected<std::string, std::string> {
         return getDefaultAudioDevice(audio_device::AudioDeviceType::Output).transform([] (const auto&& deviceItr) {return (*deviceItr)->m_deviceName; });
     }
 
@@ -159,8 +159,6 @@ public:
             return std::unexpected { "Could not close running stream" };
         }
 
-        stopRecording();
-
         // Audio thread stops here
         m_audioStreamParams.swap(streamParamsResult.value());
 
@@ -190,10 +188,12 @@ public:
 
     [[nodiscard]] auto startRecording(const audio_format::AudioFormat format) -> std::expected<void, std::string> {
         if (not m_audioLibraryWrapper->isStreamRunning()) {
-            return std::unexpected { "Audio stream is not running" };
+            return std::unexpected { std::string { "Audio stream is not running" } };
         }
 
-        stopRecording();
+        if (m_isRecording.load(std::memory_order_acquire)) {
+            return std::unexpected { std::string { "Recording already started" } };
+        }
 
         try {
             const auto& inputParams { dynamic_cast<const audio_stream_params::InputAudioStreamParams&>(*m_audioStreamParams) };
@@ -245,7 +245,9 @@ public:
 
     auto stopRecording() -> void {
         m_isRecording.store(false, std::memory_order_release);
+    }
 
+    auto finalizeRecording() -> void {
         m_inputRecorder.reset();
         m_outputRecorder.reset();
     }
@@ -417,7 +419,6 @@ protected:
     static constexpr std::array<const audio_stream_params::BufferLength_t, 5> m_allowedBufferLengths { 1024, 2048, 4096, 8192, 16384 };
 
     std::unique_ptr<audio_mixer::AudioMixer<float>> m_audioMixer;
-    std::unique_ptr<audio_library_wrapper::AudioLibraryWrapper> m_audioLibraryWrapper;
     std::vector<std::unique_ptr<const audio_device::AudioDevice>> m_audioDevices;
     std::unique_ptr<audio_stream_params::AudioStreamParams> m_audioStreamParams;
     std::unique_ptr<audio_buffer::AudioBuffer<float>> m_processedInputBuffer;
@@ -428,6 +429,7 @@ protected:
     std::unique_ptr<audio_recorder::AudioRecorder> m_outputRecorder;
     std::vector<std::unique_ptr<audio_buffer::AudioStats<float>>> m_inputAudioStats;
     std::vector<std::unique_ptr<audio_buffer::AudioStats<float>>> m_outputAudioStats;
+    std::unique_ptr<audio_library_wrapper::AudioLibraryWrapper> m_audioLibraryWrapper;
 
 private:
     audio_library_wrapper::LogCallback m_logCallback;

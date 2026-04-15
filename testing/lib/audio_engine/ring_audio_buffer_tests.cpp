@@ -53,7 +53,7 @@ TEST(RingAudioBuffer, wraparound) {
     };
 
     // Advance write/read pointers to 6 then discard
-    const std::array firstInput { 1,2, 3,4, 5,6, 7,8, 9,10, 11,12 };
+    constexpr std::array firstInput { 1,2, 3,4, 5,6, 7,8, 9,10, 11,12 };
     const auto firstBuffer { audio_buffer::makeAudioBuffer<int>(2, 6) };
     firstBuffer->copyFromRawBuffer(firstInput.data(), 2, 6, true);
     ASSERT_TRUE(rb.enqueue(*firstBuffer));
@@ -71,7 +71,7 @@ TEST(RingAudioBuffer, wraparound) {
 
     // Enqueue 4 frames — fits in the 4 contiguous slots at start (pos 0-3)
     // write ptr advances to 4
-    const std::array thirdInput { 500,600, 700,800, 900,1000, 1100,1200 };
+    constexpr std::array thirdInput { 500,600, 700,800, 900,1000, 1100,1200 };
     const auto thirdBuffer { audio_buffer::makeAudioBuffer<int>(2, 4) };
     thirdBuffer->copyFromRawBuffer(thirdInput.data(), 2, 4, true);
     ASSERT_TRUE(rb.enqueue(*thirdBuffer));
@@ -91,4 +91,43 @@ TEST(RingAudioBuffer, wraparound) {
     // Expected: secondInput followed by thirdInput, interleaved
     constexpr std::array expectedResult { 100,200, 300,400, 500,600, 700,800, 900,1000, 1100,1200 };
     EXPECT_EQ(outputSamples, expectedResult);
+}
+
+TEST(RingAudioBuffer, enqueue_wraparound) {
+    // 2 channels, capacity 8 frames
+    ring_audio_buffer::RingAudioBuffer<int> rb {
+        audio_device::ChannelCount_t { 2 },
+        audio_stream_params::BufferLength_t { 8 }
+    };
+
+    // Advance write/read pointers to 6, then discard
+    constexpr std::array firstInput { 1,2, 3,4, 5,6, 7,8, 9,10, 11,12 };
+    const auto firstBuffer { audio_buffer::makeAudioBuffer<int>(2, 6) };
+    firstBuffer->copyFromRawBuffer(firstInput.data(), 2, 6, true);
+    ASSERT_TRUE(rb.enqueue(*firstBuffer));
+
+    const auto discardBuffer { audio_buffer::makeAudioBuffer<int>(0, 0) };
+    ASSERT_TRUE(rb.dequeue(*discardBuffer));
+    // write ptr = 6, read ptr = 6
+
+    // Single enqueue of 4 frames spanning the boundary:
+    // chunk1 (frames 0-1 of input) → ring positions 6-7
+    // chunk2 (frames 2-3 of input) → ring positions 0-1  ← exercises enqueue wraparound
+    constexpr std::array wrapInput { 100,200, 300,400, 500,600, 700,800 };
+    const auto wrapBuffer { audio_buffer::makeAudioBuffer<int>(2, 4) };
+    wrapBuffer->copyFromRawBuffer(wrapInput.data(), 2, 4, true);
+    ASSERT_TRUE(rb.enqueue(*wrapBuffer));
+    // write ptr = 2, read ptr = 6
+
+    // Dequeue and verify round-trip integrity
+    const auto outputBuffer { audio_buffer::makeAudioBuffer<int>(0, 0) };
+    ASSERT_TRUE(rb.dequeue(*outputBuffer));
+
+    ASSERT_EQ(outputBuffer->numberOfChannels(), 2);
+    ASSERT_EQ(outputBuffer->bufferLength(), 4);
+
+    std::array<int, 8> outputSamples {};
+    outputBuffer->writeToRawBuffer(outputSamples.data(), 2, 4, true);
+
+    EXPECT_EQ(outputSamples, wrapInput);
 }

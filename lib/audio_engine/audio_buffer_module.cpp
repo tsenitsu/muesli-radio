@@ -140,20 +140,37 @@ public:
         }
     }
 
-    auto writeToRawBuffer(T* bufferDest, const audio_device::ChannelCount_t numberOfChannels, const audio_stream_params::BufferLength_t samplesPerChannel, const bool interleave = true) const -> void {
-        if (bufferDest == nullptr or m_channels.size() == 0 or not isRawBufferCompatible(numberOfChannels, samplesPerChannel, 0))
+    auto writeToRawBuffer(T* bufferDest, const audio_device::ChannelCount_t numberOfChannels,
+                      const audio_stream_params::BufferLength_t samplesPerChannel,
+                      const bool interleave = true,
+                      const audio_stream_params::BufferLength_t offset = 0) const -> void {
+        if (bufferDest == nullptr or m_channels.size() == 0 or not isRawBufferCompatible(numberOfChannels, samplesPerChannel, offset))
             return;
 
         std::span rawBuffer { bufferDest, numberOfChannels * samplesPerChannel };
 
         if (not interleave) {
-            std::ranges::copy(std::ranges::begin(m_buffer), std::ranges::end(m_buffer), std::ranges::begin(rawBuffer));
+            if (offset == 0) {
+                std::ranges::copy(std::ranges::begin(m_buffer), std::ranges::end(m_buffer), std::ranges::begin(rawBuffer));
+                return;
+            }
+
+            for (auto currentChannelIdx { audio_device::ChannelCount_t { 0 } }; const auto& channel : m_channels) {
+                const auto srcBegin { std::next(std::ranges::begin(channel), offset) };
+                const auto srcEnd   { std::next(srcBegin, samplesPerChannel) };
+
+                const auto destBegin { std::next(std::ranges::begin(rawBuffer), currentChannelIdx * samplesPerChannel) };
+                std::ranges::copy(srcBegin, srcEnd, destBegin);
+
+                ++currentChannelIdx;
+            }
+
             return;
         }
 
         for (auto currentSample { static_cast<audio_stream_params::BufferLength_t>(0) }; currentSample < samplesPerChannel; ++currentSample) {
             for (auto currentChannel { static_cast<audio_device::ChannelCount_t>(0) }; currentChannel < numberOfChannels; ++currentChannel) {
-                rawBuffer[currentSample * numberOfChannels + currentChannel] = m_buffer[samplesPerChannel * currentChannel + currentSample];
+                rawBuffer[currentSample * numberOfChannels + currentChannel] = m_buffer[bufferLength() * currentChannel + currentSample + offset];
             }
         }
     }

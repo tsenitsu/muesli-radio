@@ -43,22 +43,38 @@ public:
         void* writePtr { nullptr };
         auto writeFrames { buffer.bufferLength() };
 
-        if (auto result { ma_pcm_rb_acquire_write(&m_rb, &writeFrames, &writePtr) }; result != MA_SUCCESS or writeFrames < buffer.bufferLength()) {
+        if (ma_pcm_rb_acquire_write(&m_rb, &writeFrames, &writePtr) != MA_SUCCESS) {
             return false;
         }
 
+        const auto remainingFramesToWrite { buffer.bufferLength() - writeFrames };
+
         buffer.writeToRawBuffer(static_cast<G*>(writePtr), buffer.numberOfChannels(), writeFrames, true);
 
-        return ma_pcm_rb_commit_write(&m_rb, writeFrames) == MA_SUCCESS;
+        if (ma_pcm_rb_commit_write(&m_rb, writeFrames) != MA_SUCCESS) {
+            return false;
+        }
+
+        if (remainingFramesToWrite == 0) {
+            return true;
+        }
+
+        // Handle wrap-around: write the remaining frames from the start of the buffer
+        auto remainingFrames { remainingFramesToWrite };
+        if (ma_pcm_rb_acquire_write(&m_rb, &remainingFrames, &writePtr) != MA_SUCCESS
+            || remainingFrames < remainingFramesToWrite) {
+            ma_pcm_rb_commit_write(&m_rb, 0); // rollback
+            return false;
+            }
+
+        buffer.writeToRawBuffer(static_cast<G*>(writePtr), buffer.numberOfChannels(), remainingFrames, true, /* offset */ writeFrames);
+
+        return ma_pcm_rb_commit_write(&m_rb, remainingFrames) == MA_SUCCESS;
     }
 
     template <typename G> requires std::same_as<T, G>
     [[nodiscard]] auto dequeue(audio_buffer::AudioBuffer<G>& buffer) -> bool {
         const auto totalFramesToRead { ma_pcm_rb_available_read(&m_rb) };
-
-        if (totalFramesToRead == 0) {
-            return true;
-        }
 
         buffer.resize(ma_pcm_rb_get_channels(&m_rb), totalFramesToRead);
 

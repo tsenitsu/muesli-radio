@@ -64,19 +64,19 @@ auto makeDefaultOutputDevice() -> auto { return audio_device::makeAudioDevice(au
 
 TEST_F(AudioEngineTest, getDefaultAudioDevice) {
     EXPECT_EQ(m_audioEngineMock.defaultInputAudioDeviceName(), std::unexpected { "Audio device not found" });
-    EXPECT_EQ(m_audioEngineMock.defaultAudioOutputDeviceName(), std::unexpected { "Audio device not found" });
+    EXPECT_EQ(m_audioEngineMock.defaultOutputAudioDeviceName(), std::unexpected { "Audio device not found" });
 
     m_audioEngineMock.m_audioDevices.push_back(makeInputDevice());
     m_audioEngineMock.m_audioDevices.push_back(makeOutputDevice());
 
     EXPECT_EQ(m_audioEngineMock.defaultInputAudioDeviceName(), std::unexpected { "Audio device not found" });
-    EXPECT_EQ(m_audioEngineMock.defaultAudioOutputDeviceName(), std::unexpected { "Audio device not found" });
+    EXPECT_EQ(m_audioEngineMock.defaultOutputAudioDeviceName(), std::unexpected { "Audio device not found" });
 
     m_audioEngineMock.m_audioDevices.push_back(makeDefaultInputDevice());
     m_audioEngineMock.m_audioDevices.push_back(makeDefaultOutputDevice());
 
     EXPECT_EQ(m_audioEngineMock.defaultInputAudioDeviceName(), (std::expected<std::string, std::string> { "defaultInput" }));
-    EXPECT_EQ(m_audioEngineMock.defaultAudioOutputDeviceName(), (std::expected<std::string, std::string> { "defaultOutput" }));
+    EXPECT_EQ(m_audioEngineMock.defaultOutputAudioDeviceName(), (std::expected<std::string, std::string> { "defaultOutput" }));
 }
 
 TEST_F(AudioEngineTest, getAudioDevice) {
