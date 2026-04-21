@@ -19,6 +19,48 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug" AND ENABLE_ASAN AND ENABLE_TSAN)
     message(FATAL_ERROR "Address sanitizer and Thread sanitizer can not be enabled at the same time")
 endif()
 
+# Fetch all libraries
+include(FetchContent)
+
+# Miniaudio
+set(MINIAUDIO_BUILD_EXAMPLES OFF)
+set(MINIAUDIO_BUILD_TESTS OFF)
+set(MINIAUDIO_NO_EXTRA_NODES ON)
+set(MINIAUDIO_NO_LIBVORBIS ON)
+set(MINIAUDIO_NO_LIBOPUS ON)
+set(MINIAUDIO_NO_SNDIO ON)
+set(MINIAUDIO_NO_AUDIO4 ON)
+set(MINIAUDIO_NO_OSS ON)
+set(MINIAUDIO_NO_AAUDIO ON)
+set(MINIAUDIO_NO_OPENSL ON)
+set(MINIAUDIO_NO_WEBAUDIO ON)
+set(MINIAUDIO_NO_CUSTOM ON)
+set(MINIAUDIO_NO_FLAC ON)
+set(MINIAUDIO_NO_MP3 ON)
+set(MINIAUDIO_NO_RESOURCE_MANAGER ON)
+set(MINIAUDIO_NO_NODE_GRAPH ON)
+set(MINIAUDIO_NO_ENGINE ON)
+set(MINIAUDIO_NO_GENERATION ON)
+
+FetchContent_Declare(
+        miniaudio
+        GIT_REPOSITORY https://github.com/mackron/miniaudio
+        GIT_TAG        master
+)
+
+FetchContent_MakeAvailable(miniaudio)
+
+# GTest
+set(INSTALL_GTEST OFF)
+
+FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest
+        GIT_TAG        v1.15.2
+)
+
+FetchContent_MakeAvailable(googletest)
+
 if(MSVC)
    add_compile_options(/W4 /WX /w14242 /w14254 /w14287)
     if (CMAKE_BUILD_TYPE STREQUAL "Debug")
