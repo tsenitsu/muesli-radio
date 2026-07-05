@@ -7,7 +7,7 @@ AudioRecorder::AudioRecorder([[maybe_unused]]const audio_device::SampleRate_t sa
   : m_writers {},
     m_routing {} {
 
-    if (fileNames.size() == 0) {
+    if (fileNames.empty()) {
         throw std::invalid_argument( "No files provided");
     }
 
@@ -18,7 +18,7 @@ AudioRecorder::AudioRecorder([[maybe_unused]]const audio_device::SampleRate_t sa
         throw std::invalid_argument("Duplicate file names provided");
     }
 
-    if (routingList.size() == 0) {
+    if (routingList.empty()) {
         throw std::invalid_argument( "No routing list provided");
     }
 
@@ -84,7 +84,7 @@ AudioRecorder::AudioRecorder([[maybe_unused]]const audio_device::SampleRate_t sa
         throw std::runtime_error { "Mismatch between audio writers and routing list" };
     }
 
-    if (m_writers.size() == 0) {
+    if (m_writers.empty()) {
         throw std::invalid_argument { "No audio writers provided" };
     }
 }
