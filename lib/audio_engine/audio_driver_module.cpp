@@ -42,7 +42,9 @@ export constexpr std::array availableAudioDrivers {
     AudioDriver::Alsa,
     AudioDriver::Jack,
 #endif
+#ifndef NDEBUG
     AudioDriver::Null
+#endif
 };
 
 }
