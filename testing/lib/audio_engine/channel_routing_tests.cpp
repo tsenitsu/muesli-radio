@@ -114,13 +114,20 @@ TEST(ChannelRoutingSerializer, serializeDeserialize) {
 }
 
 TEST(ChannelRouting, makeRoutingList) {
-    EXPECT_EQ(audio_mixer::makeRoutingList(0), std::vector<std::unique_ptr<audio_mixer::ChannelRouting>> {});
+    auto routingList { audio_mixer::makeRoutingList(0) };
 
     std::vector<std::unique_ptr<audio_mixer::ChannelRouting>> expectedRoutingList {};
+    expectedRoutingList.emplace_back(audio_mixer::makeChannelRouting().value());
+
+    ASSERT_EQ(routingList.size(), expectedRoutingList.size());
+    for (size_t i { 0 }; i < routingList.size(); ++i)
+        EXPECT_EQ(*expectedRoutingList[i], *routingList[i]);
+
+    expectedRoutingList.clear();
     expectedRoutingList.emplace_back(audio_mixer::makeChannelRouting(audio_mixer::Routing_t { 0 }).value());
     expectedRoutingList.emplace_back(audio_mixer::makeChannelRouting().value());
 
-    auto routingList { audio_mixer::makeRoutingList(1) };
+    routingList = audio_mixer::makeRoutingList(1);
 
     ASSERT_EQ(routingList.size(), expectedRoutingList.size());
     for (size_t i { 0 }; i < routingList.size(); ++i)
@@ -151,6 +158,47 @@ TEST(ChannelRouting, makeRoutingList) {
     expectedRoutingList.emplace_back(audio_mixer::makeChannelRouting().value());
 
     routingList = audio_mixer::makeRoutingList(4);
+
+    ASSERT_EQ(routingList.size(), expectedRoutingList.size());
+    for (size_t i { 0 }; i < routingList.size(); ++i)
+        EXPECT_EQ(*expectedRoutingList[i], *routingList[i]);
+}
+
+TEST(ChannelRouting, makeStereoRoutingList) {
+    auto routingList { audio_mixer::makeRoutingList(0) };
+
+    std::vector<std::unique_ptr<audio_mixer::ChannelRouting>> expectedRoutingList {};
+    expectedRoutingList.emplace_back(audio_mixer::makeChannelRouting().value());
+
+    ASSERT_EQ(routingList.size(), expectedRoutingList.size());
+    for (size_t i { 0 }; i < routingList.size(); ++i)
+        EXPECT_EQ(*expectedRoutingList[i], *routingList[i]);
+
+    expectedRoutingList.clear();
+    expectedRoutingList.emplace_back(audio_mixer::makeChannelRouting().value());
+
+    routingList = audio_mixer::makeStereoRoutingList(1);
+
+    ASSERT_EQ(routingList.size(), expectedRoutingList.size());
+    for (size_t i { 0 }; i < routingList.size(); ++i)
+        EXPECT_EQ(*expectedRoutingList[i], *routingList[i]);
+
+    expectedRoutingList.clear();
+    expectedRoutingList.emplace_back(audio_mixer::makeChannelRouting(audio_mixer::Routing_t { 0 }, audio_mixer::Routing_t { 1 }).value());
+    expectedRoutingList.emplace_back(audio_mixer::makeChannelRouting().value());
+
+    routingList = audio_mixer::makeStereoRoutingList(3);
+
+    ASSERT_EQ(routingList.size(), expectedRoutingList.size());
+    for (size_t i { 0 }; i < routingList.size(); ++i)
+        EXPECT_EQ(*expectedRoutingList[i], *routingList[i]);
+
+    expectedRoutingList.clear();
+    expectedRoutingList.emplace_back(audio_mixer::makeChannelRouting(audio_mixer::Routing_t { 0 }, audio_mixer::Routing_t { 1 }).value());
+    expectedRoutingList.emplace_back(audio_mixer::makeChannelRouting(audio_mixer::Routing_t { 2 }, audio_mixer::Routing_t { 3 }).value());
+    expectedRoutingList.emplace_back(audio_mixer::makeChannelRouting().value());
+
+    routingList = audio_mixer::makeStereoRoutingList(4);
 
     ASSERT_EQ(routingList.size(), expectedRoutingList.size());
     for (size_t i { 0 }; i < routingList.size(); ++i)

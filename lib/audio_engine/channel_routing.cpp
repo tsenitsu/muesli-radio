@@ -58,10 +58,6 @@ auto makeChannelRouting(const std::optional<Routing_t>& leftMono, const std::opt
 }
 
 auto makeRoutingList(const Routing_t numberOfChannels) -> std::vector<std::unique_ptr<ChannelRouting>> {
-    if (numberOfChannels == 0) {
-        return {};
-    }
-
     std::vector<std::unique_ptr<ChannelRouting>> routingList(numberOfChannels * 2);
 
     for (auto channel { Routing_t { 0 } }; channel < numberOfChannels; ++channel) {
@@ -69,10 +65,32 @@ auto makeRoutingList(const Routing_t numberOfChannels) -> std::vector<std::uniqu
         routingList[numberOfChannels + channel] = makeChannelRouting(channel, static_cast<Routing_t>(channel + 1)).value();
     }
 
-    // Replace last invalid value (e.g. if number of channels is 4, 3/4, with "No audio"
-    *std::ranges::rbegin(routingList) = makeChannelRouting().value();
+    if (numberOfChannels > 0) {
+        // Replace the last invalid value (e.g. if the number of channels is 4, 3/4, with "No audio"
+        *std::ranges::rbegin(routingList) = makeChannelRouting().value();
+    } else {
+        routingList.emplace_back(makeChannelRouting().value());
+    }
 
     return routingList;
+}
+
+auto makeStereoRoutingList(const Routing_t numberOfChannels) -> std::vector<std::unique_ptr<ChannelRouting>> {
+    auto fullList = makeRoutingList(numberOfChannels);
+
+    std::vector<std::unique_ptr<ChannelRouting>> result;
+    result.reserve(numberOfChannels / 2 + 1);
+
+    // Stereo pairs live at [numberOfChannels, 2*numberOfChannels).
+    // Step by 2 to keep only non-adjacent pairs (0/1, 2/3, …).
+    // Guard: ch+1 < numberOfChannels skips the last slot when it was
+    // already replaced by "No audio" (e.g. n=1 → "0/1" → "No audio").
+    for (Routing_t ch { 0 }; ch + 1 < numberOfChannels; ch += 2) {
+        result.push_back(std::move(fullList[numberOfChannels + ch]));
+    }
+
+    result.push_back(std::move(fullList.back())); // "No audio"
+    return result;
 }
 
 auto toString(const ChannelRouting& channelRouting) -> std::string {

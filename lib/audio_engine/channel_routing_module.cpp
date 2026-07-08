@@ -36,6 +36,7 @@ export struct ChannelRoutingSerializer {
 
 export [[nodiscard]] auto makeChannelRouting(const std::optional<Routing_t>& leftMono = std::nullopt, const std::optional<Routing_t>& right = std::nullopt) -> std::expected<std::unique_ptr<ChannelRouting>, std::string>;
 export [[nodiscard]] auto makeRoutingList(Routing_t numberOfChannels) -> std::vector<std::unique_ptr<ChannelRouting>>;
+export [[nodiscard]] auto makeStereoRoutingList(Routing_t numberOfChannels) -> std::vector<std::unique_ptr<ChannelRouting>>;
 export [[nodiscard]] auto toString(const ChannelRouting& channelRouting) -> std::string;
 
 [[nodiscard]] auto isChannelRoutingValid(const std::optional<Routing_t>& leftMono, const std::optional<Routing_t>& right) -> std::expected<void, std::string>;
