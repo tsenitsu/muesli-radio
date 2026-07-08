@@ -34,7 +34,7 @@ public:
         m_outputAudioStats { std::vector<std::unique_ptr<audio_buffer::AudioStats<float>>> {} },
         m_audioLibraryWrapper { nullptr },
         m_logCallback { logCallback },
-        m_audioCallback { [this] (const audio_buffer::AudioBuffer<float>& inputBuffer, const audio_buffer::AudioBuffer<float>& outputBuffer) {
+        m_audioCallback { [this] (const audio_buffer::AudioBuffer<float>& inputBuffer, audio_buffer::AudioBuffer<float>& outputBuffer) {
             process(inputBuffer, outputBuffer);
         } } {
         if (const auto setAudioDriverResult { audioDriver(newAudioDriver) }; not setAudioDriverResult.has_value()) {
@@ -78,8 +78,16 @@ public:
         return getDefaultAudioDevice(audio_device::AudioDeviceType::Output).transform([] (const auto&& deviceItr) {return (*deviceItr)->m_deviceName; });
     }
 
-    [[nodiscard]] auto startStream(const std::optional<std::string>& inputDeviceName,
-                        const std::optional<std::string>& outputDeviceName, audio_stream_params::BufferLength_t bufferLength) -> std::expected<void, std::string> {
+    [[nodiscard]] auto inputAudioDeviceSummaryList() -> std::expected<std::vector<audio_device::AudioDeviceSummary>, std::string> {
+        return audioDeviceSummaryList(audio_device::AudioDeviceType::Input);
+    }
+
+    [[nodiscard]] auto outputAudioDeviceSummaryList() -> std::expected<std::vector<audio_device::AudioDeviceSummary>, std::string> {
+        return audioDeviceSummaryList(audio_device::AudioDeviceType::Output);
+    }
+
+    [[nodiscard]] auto startStream(std::optional<std::string> inputDeviceName,
+                                   std::optional<std::string> outputDeviceName, audio_stream_params::BufferLength_t bufferLength) -> std::expected<void, std::string> {
         if (not isBufferLengthAllowed(bufferLength)) {
             return std::unexpected { std::format("Buffer length {} is not allowed", bufferLength) };
         }
@@ -210,10 +218,13 @@ public:
                 return std::unexpected { "Input ring audio buffer is null" };
             }
 
-            if (auto inputAudioRecorder { audio_recorder::makeAudioRecorder(m_audioStreamParams->m_sampleRate, format, fileNames, routingList) }; not inputAudioRecorder.has_value()) {
-                return std::unexpected { std::format("Could not create input audio recorder: {}", inputAudioRecorder.error()) };
-            } else {
-                m_inputRecorder.swap(inputAudioRecorder.value());
+            const auto isDefaultRouting { std::ranges::all_of(routingList, [] (const auto& routing) { return not routing.isMono() and not routing.isStereo(); }) };
+            if (not isDefaultRouting) {
+                if (auto inputAudioRecorder { audio_recorder::makeAudioRecorder(m_audioStreamParams->m_sampleRate, format, fileNames, routingList) }; not inputAudioRecorder.has_value()) {
+                    return std::unexpected { std::format("Could not create input audio recorder: {}", inputAudioRecorder.error()) };
+                } else {
+                    m_inputRecorder.swap(inputAudioRecorder.value());
+                }
             }
         } catch ([[maybe_unused]] const std::bad_cast&) {}
 
@@ -232,12 +243,19 @@ public:
                 return std::unexpected { "Output ring audio buffer is null" };
             }
 
-            if (auto outputAudioRecorder { audio_recorder::makeAudioRecorder(m_audioStreamParams->m_sampleRate, format, fileNames, routingList) }; not outputAudioRecorder.has_value()) {
-                return std::unexpected { std::format("Could not create output audio recorder: {}", outputAudioRecorder.error()) };
-            } else {
-                m_outputRecorder.swap(outputAudioRecorder.value());
+            const auto isDefaultRouting { std::ranges::all_of(routingList, [] (const auto& routing) { return not routing.isMono() and not routing.isStereo(); }) };
+            if (not isDefaultRouting) {
+                if (auto outputAudioRecorder { audio_recorder::makeAudioRecorder(m_audioStreamParams->m_sampleRate, format, fileNames, routingList) }; not outputAudioRecorder.has_value()) {
+                    return std::unexpected { std::format("Could not create output audio recorder: {}", outputAudioRecorder.error()) };
+                } else {
+                    m_outputRecorder.swap(outputAudioRecorder.value());
+                }
             }
         } catch ([[maybe_unused]] const std::bad_cast&) {}
+
+        if (not m_inputRecorder and not m_outputRecorder) {
+            return std::unexpected { "No routing selected" };
+        }
 
         m_isRecording.store(true, std::memory_order_release);
         return {};
@@ -250,6 +268,9 @@ public:
     auto finalizeRecording() -> void {
         m_inputRecorder.reset();
         m_outputRecorder.reset();
+
+        if (m_inputRingAudioBuffer) m_inputRingAudioBuffer->reset();
+        if (m_outputRingAudioBuffer) m_outputRingAudioBuffer->reset();
     }
 
     [[nodiscard]] auto write() const -> bool {
@@ -282,6 +303,16 @@ public:
         }
 
         return true;
+    }
+
+    [[nodiscard]] static auto allowedBufferLengths() -> const auto& { return m_allowedBufferLengths; }
+
+    auto inputLevels(std::span<float> inputLevels) const -> void {
+        std::ranges::transform(m_inputAudioStats, std::ranges::begin(inputLevels), [] (const auto& stats) { return stats->max(); });
+    }
+
+    auto outputLevels(std::span<float> outputLevels) const -> void {
+        std::ranges::transform(m_outputAudioStats, std::ranges::begin(outputLevels), [] (const auto& stats) { return stats->max(); });
     }
 
 protected:
@@ -335,6 +366,20 @@ protected:
         return deviceItr;
     }
 
+    [[nodiscard]] auto audioDeviceSummaryList(const audio_device::AudioDeviceType deviceType) -> std::expected<std::vector<audio_device::AudioDeviceSummary>, std::string> {
+        if (const auto probeResult { probeDevices() }; not probeResult.has_value()) {
+            return std::unexpected { std::move(probeResult).error() };
+        }
+
+        std::vector<audio_device::AudioDeviceSummary> audioDeviceSummaryList {};
+        for (auto& device : m_audioDevices
+                            | std::views::filter([&deviceType] (const auto& audioDevice) { return audioDevice->m_type == deviceType; })) {
+            audioDeviceSummaryList.emplace_back(device->m_deviceName, device->m_nativeDataFormats[0].m_channels);
+        }
+
+        return audioDeviceSummaryList;
+    }
+
     auto processInput(const audio_buffer::AudioBuffer<float>& inputBuffer, const audio_buffer::AudioBuffer<float>& outputBuffer) const -> void {
         const auto inputChannels { inputBuffer.numberOfChannels() };
         for (auto channel { audio_device::ChannelCount_t { 0 } };  channel < inputChannels; ++channel) {
@@ -344,7 +389,8 @@ protected:
                 continue;
 
             auto inputBufferView { inputBuffer.view(inputRouting.m_leftMono.value(), inputRouting.m_right) };
-            auto processedInputBufferView { m_processedInputBuffer->view(channel * 2, channel * 2 + 1) };
+            auto processedInputBufferView { m_processedInputBuffer->view(channel * 2,
+                inputRouting.isStereo() ? std::optional { channel * 2 + 1 } : std::nullopt) };
 
             m_audioMixer->processInput(inputBufferView, processedInputBufferView, channel);
 
@@ -356,13 +402,19 @@ protected:
         }
     }
 
-    auto processOutput(const audio_buffer::AudioBuffer<float>& outputBuffer) const -> void {
+    auto processOutput(audio_buffer::AudioBuffer<float>& outputBuffer) const -> void {
         const auto outputChannels { outputBuffer.numberOfChannels() };
-        for (auto channel { audio_device::ChannelCount_t { 0 } }; channel < outputChannels; ++channel) {
+        // Output mixer is always stereo
+        for (auto channel { audio_device::ChannelCount_t { 0 } }; channel < outputChannels / 2; ++channel) {
             const auto outputRouting { m_audioMixer->outputRouting(channel) };
 
-            if (not outputRouting.isMono() and not outputRouting.isStereo())
+            if (not outputRouting.isMono() and not outputRouting.isStereo()) {
+                // A mixer channel is stereo, so if we don't have a routing for a stereo channel,
+                // we clear channel and next channel
+                outputBuffer.clear(channel);
+                outputBuffer.clear(channel + 1);
                 continue;
+            }
 
             // Input routing is same as output for output channels, checking output.
             auto outputBufferView { outputBuffer.view(outputRouting.m_leftMono.value(), outputRouting.m_right) };
@@ -374,7 +426,7 @@ protected:
         }
     }
 
-    auto process(const audio_buffer::AudioBuffer<float>& inputBuffer, const audio_buffer::AudioBuffer<float>& outputBuffer) const -> void {
+    auto process(const audio_buffer::AudioBuffer<float>& inputBuffer, audio_buffer::AudioBuffer<float>& outputBuffer) const -> void {
         if (m_processedInputBuffer)
             m_processedInputBuffer->clear();
 
@@ -395,6 +447,7 @@ protected:
         }
 
         processInput(inputBuffer, outputBuffer);
+        processOutput(outputBuffer);
 
         if (m_outputRingAudioBuffer && isRecording) {
             std::ignore = m_outputRingAudioBuffer->enqueue(outputBuffer);
@@ -409,8 +462,6 @@ protected:
             stats.max(max);
             stats.rms(rms);
         }
-
-        processOutput(outputBuffer);
     }
 
     static constexpr audio_device::SampleRate_t m_sampleRate { 48000 };

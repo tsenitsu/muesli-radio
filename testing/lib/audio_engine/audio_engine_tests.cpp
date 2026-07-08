@@ -31,6 +31,7 @@ public:
     using AudioEngine<T>::closeStream;
     using AudioEngine<T>::processInput;
     using AudioEngine<T>::process;
+    using AudioEngine<T>::audioDeviceSummaryList;
 
     using AudioEngine<T>::m_allowedBufferLengths;
     using AudioEngine<T>::m_audioDevices;
@@ -94,6 +95,37 @@ TEST_F(AudioEngineTest, getAudioDevice) {
     EXPECT_EQ(***m_audioEngineMock.getAudioDevice("output", audio_device::AudioDeviceType::Output), *makeOutputDevice());
     EXPECT_EQ(m_audioEngineMock.getAudioDevice("output", audio_device::AudioDeviceType::Input), std::unexpected { "Audio device not found" });
     EXPECT_EQ(m_audioEngineMock.getAudioDevice("non existing device", audio_device::AudioDeviceType::Input), std::unexpected { "Audio device not found" });
+}
+
+TEST_F(AudioEngineTest, audioDeviceSummaryList) {
+    int callCount = 0;
+
+    EXPECT_CALL(static_cast<AudioLibraryWrapperMock&>(*m_audioEngineMock.m_audioLibraryWrapper), probeDevices)
+        .Times(6)
+        .WillRepeatedly([&callCount]() -> std::expected<std::vector<std::unique_ptr<const audio_device::AudioDevice>>, std::string> {
+            std::vector<std::unique_ptr<const audio_device::AudioDevice>> devices;
+
+            if (callCount == 2 || callCount == 3) {
+                devices.push_back(makeInputDevice());
+            }
+
+            else if (callCount == 4 || callCount == 5) {
+                devices.push_back(makeInputDevice());
+                devices.push_back(makeOutputDevice());
+            }
+
+            callCount++;
+            return devices;
+        });
+
+    EXPECT_EQ(m_audioEngineMock.audioDeviceSummaryList(audio_device::AudioDeviceType::Input), (std::vector<audio_device::AudioDeviceSummary> {}));
+    EXPECT_EQ(m_audioEngineMock.audioDeviceSummaryList(audio_device::AudioDeviceType::Output), (std::vector<audio_device::AudioDeviceSummary> {}));
+
+    EXPECT_EQ(m_audioEngineMock.audioDeviceSummaryList(audio_device::AudioDeviceType::Input), (std::vector { { audio_device::AudioDeviceSummary { "input", 2 } } }));
+    EXPECT_EQ(m_audioEngineMock.audioDeviceSummaryList(audio_device::AudioDeviceType::Output), (std::vector<audio_device::AudioDeviceSummary> {}));
+
+    EXPECT_EQ(m_audioEngineMock.audioDeviceSummaryList(audio_device::AudioDeviceType::Input), (std::vector { { audio_device::AudioDeviceSummary { "input", 2 } } }));
+    EXPECT_EQ(m_audioEngineMock.audioDeviceSummaryList(audio_device::AudioDeviceType::Output), (std::vector { { audio_device::AudioDeviceSummary { "output", 2 } } }));
 }
 
 TEST_F(AudioEngineTest, isBufferLengthALlowed) {
@@ -305,7 +337,7 @@ TEST_F(AudioEngineTest, process) {
 
     m_audioEngineMock.m_audioMixer->inputRouting(std::make_pair(audio_mixer::ChannelRouting {}, audio_mixer::ChannelRouting {}), 0);
     m_audioEngineMock.m_audioMixer->inputRouting(std::make_pair(*stereoRouting, *stereoRouting), 1);
-    m_audioEngineMock.m_audioMixer->outputRouting(*stereoRouting, 1);
+    m_audioEngineMock.m_audioMixer->outputRouting(*stereoRouting, 0);
 
     m_audioEngineMock.m_processedInputBuffer->clear();
     outputBuffer->clear();
@@ -342,7 +374,7 @@ TEST_F(AudioEngineTest, process) {
     outputBuffer->writeToRawBuffer(outputSamples.data(),audio_device::ChannelCount_t { 2 }, audio_stream_params::BufferLength_t { 5 }, false);
     EXPECT_EQ(processedInputSamples, (std::array { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f }));
 
-    expectedResult =  std::array { 2.0f, 4.0f, 6.0f, 8.0f, 10.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f };
+    expectedResult = std::array { 2.0f, 4.0f, 6.0f, 8.0f, 10.0f, 7.0f, 9.0f, 11.0f, 13.0f, 15.0f };
 
     for (size_t i { 0 }; i < outputSamples.size(); ++i) {
         EXPECT_NEAR(outputSamples[i], expectedResult[i], std::numeric_limits<float>::epsilon());
@@ -379,8 +411,8 @@ TEST_F(AudioEngineTest, process) {
     };
 
     std::array expectedOutputRingAudioBuffer {
-        2.0f,4.0f,6.0f,8.0f,10.0f, 2.0f,4.0f,6.0f,8.0f,10.0f, 2.0f,4.0f,6.0f,8.0f,10.0f,  // ch0
-        6.0f,7.0f,8.0f,9.0f,10.0f, 6.0f,7.0f,8.0f,9.0f,10.0f, 6.0f,7.0f,8.0f,9.0f,10.0f   // ch1
+        2.0f,4.0f,6.0f,8.0f,10.0f, 2.0f,4.0f,6.0f,8.0f,10.0f, 2.0f,4.0f,6.0f,8.0f,10.0f,        // ch0
+        7.0f,9.0f,11.0f,13.0f,15.0f, 7.0f,9.0f,11.0f,13.0f,15.0f, 7.0f,9.0f,11.0f,13.0f,15.0f   // ch1
     };
 
     std::array<float, 30> rawInputRingAudioBuffer {};
