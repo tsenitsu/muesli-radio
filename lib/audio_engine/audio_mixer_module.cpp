@@ -42,12 +42,12 @@ public:
     auto outputGain(const T gain, const audio_device::ChannelCount_t channel) -> void { if (not mixerChannelExists(channel, m_outputChannels)) { return; } m_outputChannels[channel]->gain(gain); }
     [[nodiscard]] auto outputGain(const audio_device::ChannelCount_t channel) const -> T { return mixerChannelExists(channel, m_outputChannels)? m_outputChannels[channel]->gain() : T {}; }
 
-    // We assume routing has been validated upon construction
-    auto inputRouting(const std::pair<ChannelRouting, ChannelRouting>& routing, const audio_device::ChannelCount_t channel) -> void { if (not mixerChannelExists(channel, m_inputChannels)) { return; } m_inputChannels[channel]->routing(routing); }
+    // We assume routing has been validated upon construction, output routing is always stereo
+    auto inputRouting(const std::pair<ChannelRouting, ChannelRouting>& routing, const audio_device::ChannelCount_t channel) -> void { if (not mixerChannelExists(channel, m_inputChannels) or routing.second.isMono()) { return; } m_inputChannels[channel]->routing(routing); }
     [[nodiscard]] auto inputRouting(const audio_device::ChannelCount_t channel) const -> std::pair<ChannelRouting, ChannelRouting> { return mixerChannelExists(channel, m_inputChannels)? m_inputChannels[channel]->routing() : std::make_pair(ChannelRouting {}, ChannelRouting {}); }
 
     // outputRouting is always stereo
-    auto outputRouting(const ChannelRouting& routing, const audio_device::ChannelCount_t channel) -> void { if (not mixerChannelExists(channel, m_outputChannels) or not routing.isStereo()) { return; } m_outputChannels[channel]->routing(std::make_pair(ChannelRouting {}, routing)); }
+    auto outputRouting(const ChannelRouting& routing, const audio_device::ChannelCount_t channel) -> void { if (not mixerChannelExists(channel, m_outputChannels) or routing.isMono()) { return; } m_outputChannels[channel]->routing(std::make_pair(ChannelRouting {}, routing)); }
     [[nodiscard]] auto outputRouting(const audio_device::ChannelCount_t channel) const -> ChannelRouting { return mixerChannelExists(channel, m_outputChannels)? m_outputChannels[channel]->routing().second : ChannelRouting {}; }
 
     auto processInput(const audio_buffer::ReadOnlyAudioBufferView<T>& input, const audio_buffer::AudioBufferView<T>& processed, const audio_device::ChannelCount_t channel) {
