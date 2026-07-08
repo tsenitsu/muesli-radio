@@ -27,8 +27,23 @@ public:
     [[nodiscard]] auto isStreamRunning() const -> bool override;
 
 private:
-    friend auto miniaudioLogCallback(void* userData, ma_uint32 logLevel, const char* logMessage) -> void;
-    friend auto miniaudioAudioCallback(ma_device* device, void* outputBuffer, const void* inputBuffer, ma_uint32 frameCount) -> void;
+    // miniaudioLogCallback and miniaudioAudioCallback are static member functions
+    // rather than free functions declared as friends. The standard guarantees that
+    // a friend of a derived class can access protected members inherited from a
+    // base class defined in a different module, and Clang 22 enforces this correctly.
+    // GCC 16, however, fails to carry friend grants from the module interface unit
+    // into the implementation unit in this scenario, producing a spurious
+    // "protected within this context" error. Static member functions sidestep the
+    // bug entirely: they have unconditional access to all inherited protected
+    // members with no module boundary involved.
+    static auto miniaudioLogCallback(void* userData,
+                                     ma_uint32 logLevel,
+                                     const char* logMessage) -> void;
+
+    static auto miniaudioAudioCallback(ma_device* device,
+                                       void* outputBuffer,
+                                       const void* inputBuffer,
+                                       ma_uint32 frameCount) -> void;
 
     ma_context m_context;
     ma_log  m_log;

@@ -4,10 +4,6 @@ module miniaudio_library_wrapper;
 
 namespace audio_engine::audio_library_wrapper {
 
-auto miniaudioLogCallback(void* userData, [[maybe_unused]] ma_uint32 logLevel, const char* logMessage) -> void {
-    static_cast<MiniaudioLibraryWrapper*>(userData)->m_logCallback(std::string { "miniaudio: " }.append(std::string { logMessage }));
-}
-
 MiniaudioLibraryWrapper::MiniaudioLibraryWrapper(const LogCallback& logCallback, const audio_driver::AudioDriver audioDriver)
  :  AudioLibraryWrapper { logCallback },
     m_context {},
@@ -117,15 +113,6 @@ auto MiniaudioLibraryWrapper::audioDriver() const -> std::expected<audio_driver:
     return audio_driver::toAudioDriver(m_context.backend);
 }
 
-auto miniaudioAudioCallback(ma_device* device, void* outputBuffer, const void* inputBuffer, ma_uint32 frameCount) -> void {
-    const auto miniaudio { static_cast<MiniaudioLibraryWrapper*>(device->pUserData) };
-
-    miniaudio->m_inputAudioBuffer->copyFromRawBuffer(static_cast<const float*>(inputBuffer), device->capture.channels, frameCount);
-    miniaudio->m_outputAudioBuffer->clear();
-    miniaudio->m_audioCallback(*miniaudio->m_inputAudioBuffer, *miniaudio->m_outputAudioBuffer);
-    miniaudio->m_outputAudioBuffer->writeToRawBuffer(static_cast<float*>(outputBuffer), device->playback.channels, frameCount);
-}
-
 auto MiniaudioLibraryWrapper::openStream(const audio_stream_params::AudioStreamParams& audioStreamParams, const AudioCallback& audioCallback) -> bool {
     ma_device_id inputDeviceId {};
     ma_device_id outputDeviceId {};
@@ -135,11 +122,13 @@ auto MiniaudioLibraryWrapper::openStream(const audio_stream_params::AudioStreamP
     // we can override it later on
     deviceConfig = ma_device_config_init(ma_device_type_duplex);
 
-    deviceConfig.dataCallback       = miniaudioAudioCallback;
-    deviceConfig.sampleRate         = audioStreamParams.m_sampleRate;
-    deviceConfig.periodSizeInFrames = audioStreamParams.m_bufferLength;
-    deviceConfig.periods            = audioStreamParams.m_periodSize;
-    deviceConfig.pUserData          = this;
+    deviceConfig.dataCallback               = miniaudioAudioCallback;
+    deviceConfig.sampleRate                 = audioStreamParams.m_sampleRate;
+    deviceConfig.periodSizeInFrames         = audioStreamParams.m_bufferLength;
+    deviceConfig.periods                    = audioStreamParams.m_periodSize;
+    deviceConfig.pUserData                  = this;
+    deviceConfig.noClip                     = true;
+    deviceConfig.noPreSilencedOutputBuffer  = true;
 
     m_inputAudioBuffer = audio_buffer::makeAudioBuffer<float>(0, 0);
     m_outputAudioBuffer = audio_buffer::makeAudioBuffer<float>(0, 0);
@@ -174,7 +163,7 @@ auto MiniaudioLibraryWrapper::openStream(const audio_stream_params::AudioStreamP
 
     if (const auto deviceInitResult { ma_device_init(&m_context, &deviceConfig, &m_device) }; deviceInitResult != MA_SUCCESS) {
         return false;
-    };
+    }
 
     m_audioCallback = audioCallback;
     return true;
@@ -199,6 +188,19 @@ auto MiniaudioLibraryWrapper::isStreamOpen() const -> bool {
 auto MiniaudioLibraryWrapper::isStreamRunning() const -> bool {
     const auto deviceState { ma_device_get_state(&m_device) };
     return deviceState == ma_device_state_started or deviceState == ma_device_state_starting;
+}
+
+auto MiniaudioLibraryWrapper::miniaudioLogCallback(void* userData, [[maybe_unused]] ma_uint32 logLevel, const char* logMessage) -> void {
+    static_cast<MiniaudioLibraryWrapper*>(userData)->m_logCallback(std::string { "miniaudio: " }.append(std::string { logMessage }));
+}
+
+auto MiniaudioLibraryWrapper::miniaudioAudioCallback(ma_device* device, void* outputBuffer, const void* inputBuffer, ma_uint32 frameCount) -> void {
+    const auto miniaudio { static_cast<MiniaudioLibraryWrapper*>(device->pUserData) };
+
+    miniaudio->m_inputAudioBuffer->copyFromRawBuffer(static_cast<const float*>(inputBuffer), device->capture.channels, frameCount);
+    miniaudio->m_outputAudioBuffer->clear();
+    miniaudio->m_audioCallback(*miniaudio->m_inputAudioBuffer, *miniaudio->m_outputAudioBuffer);
+    miniaudio->m_outputAudioBuffer->writeToRawBuffer(static_cast<float*>(outputBuffer), device->playback.channels, frameCount);
 }
 
 template<>
