@@ -16,6 +16,8 @@ public:
     AudioEngineManager(ats::AsyncTaskScheduler& scheduler, const ae::audio_library_wrapper::LogCallback& logCallback);
     ~AudioEngineManager() override;
 
+    [[nodiscard]] static auto allowedBufferLengths() -> decltype(ae::AudioEngine<ae::audio_library_wrapper::MiniaudioLibraryWrapper>::allowedBufferLengths())&;
+
     [[nodiscard]] auto audioDriver(ae::audio_driver::AudioDriver newAudioDriver) -> ats::Result<std::expected<void, std::string>>;
     [[nodiscard]] auto audioDriver() -> ats::Result<std::expected<ae::audio_driver::AudioDriver, std::string>>;
 
@@ -24,8 +26,11 @@ public:
     [[nodiscard]] auto defaultInputAudioDeviceName() -> ats::Result<std::expected<std::string, std::string>>;
     [[nodiscard]] auto defaultOutputAudioDeviceName() -> ats::Result<std::expected<std::string, std::string>>;
 
-    [[nodiscard]] auto startStream(const std::optional<std::string>& inputDeviceName,
-        const std::optional<std::string>& outputDeviceName, ae::audio_stream_params::BufferLength_t bufferLength) -> ats::Result<std::expected<void, std::string>>;
+    [[nodiscard]] auto inputAudioDeviceSummaryList() -> ats::Result<std::expected<std::vector<ae::audio_device::AudioDeviceSummary>, std::string>>;
+    [[nodiscard]] auto outputAudioDeviceSummaryList() -> ats::Result<std::expected<std::vector<ae::audio_device::AudioDeviceSummary>, std::string>>;
+
+    [[nodiscard]] auto startStream(std::optional<std::string> inputDeviceName,
+                                   std::optional<std::string> outputDeviceName, ae::audio_stream_params::BufferLength_t bufferLength) -> ats::Result<std::expected<void, std::string>>;
 
     [[nodiscard]] auto startRecording(ae::audio_format::AudioFormat format) -> std::expected<void, std::string>;
                   auto stopRecording() -> void;
@@ -49,6 +54,9 @@ public:
 
                   auto outputChannelRouting(ae::audio_mixer::ChannelRouting routing, ae::audio_device::ChannelCount_t channelCount) const -> void;
     [[nodiscard]] auto outputChannelRouting(ae::audio_device::ChannelCount_t channelCount) const -> ae::audio_mixer::ChannelRouting;
+
+                  auto inputLevels(std::span<float> inputLevels) const -> void;
+                  auto outputLevels(std::span<float> outputLevels) const -> void;
 
 private:
     std::mutex m_taskMutex;

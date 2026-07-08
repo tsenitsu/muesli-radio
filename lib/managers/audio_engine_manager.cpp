@@ -22,6 +22,10 @@ AudioEngineManager::~AudioEngineManager() {
     stopRecording();
 }
 
+auto AudioEngineManager::allowedBufferLengths() -> decltype(ae::AudioEngine<ae::audio_library_wrapper::MiniaudioLibraryWrapper>::allowedBufferLengths())& {
+    return ae::AudioEngine<ae::audio_library_wrapper::MiniaudioLibraryWrapper>::allowedBufferLengths();
+}
+
 auto AudioEngineManager::audioDriver() -> ats::Result<std::expected<ae::audio_driver::AudioDriver, std::string>> {
     auto task { ats::makeAtomicTask([this] () {
         std::lock_guard lock { m_taskMutex };
@@ -35,6 +39,8 @@ auto AudioEngineManager::audioDriver() -> ats::Result<std::expected<ae::audio_dr
 }
 
 auto AudioEngineManager::audioDriver(const ae::audio_driver::AudioDriver newAudioDriver) -> ats::Result<std::expected<void, std::string>> {
+    stopRecording();
+
     auto task { ats::makeAtomicTask([this, newAudioDriver] () {
         std::lock_guard lock { m_taskMutex };
         return m_audioEngine->audioDriver(newAudioDriver);
@@ -82,13 +88,37 @@ auto AudioEngineManager::defaultOutputAudioDeviceName() -> ats::Result<std::expe
     return result;
 }
 
-auto AudioEngineManager::startStream(const std::optional<std::string>& inputDeviceName,
-            const std::optional<std::string>& outputDeviceName, ae::audio_stream_params::BufferLength_t bufferLength) -> ats::Result<std::expected<void, std::string>> {
+auto AudioEngineManager::inputAudioDeviceSummaryList() -> ats::Result<std::expected<std::vector<ae::audio_device::AudioDeviceSummary>, std::string>> {
+    auto task { ats::makeAtomicTask([this] () {
+        std::lock_guard lock { m_taskMutex };
+        return m_audioEngine->inputAudioDeviceSummaryList();
+    }) };
+
+    auto result { task->result() };
+    enqueueTasks(std::move(task));
+
+    return result;
+}
+
+auto AudioEngineManager::outputAudioDeviceSummaryList() -> ats::Result<std::expected<std::vector<ae::audio_device::AudioDeviceSummary>, std::string>> {
+    auto task { ats::makeAtomicTask([this] () {
+        std::lock_guard lock { m_taskMutex };
+        return m_audioEngine->outputAudioDeviceSummaryList();
+    }) };
+
+    auto result { task->result() };
+    enqueueTasks(std::move(task));
+
+    return result;
+}
+
+auto AudioEngineManager::startStream(std::optional<std::string> inputDeviceName,
+                                     std::optional<std::string> outputDeviceName, ae::audio_stream_params::BufferLength_t bufferLength) -> ats::Result<std::expected<void, std::string>> {
     stopRecording();
 
-    auto task { ats::makeAtomicTask([this, inputDeviceName, outputDeviceName, bufferLength] () {
+    auto task { ats::makeAtomicTask([this, inputDeviceName = std::move(inputDeviceName), outputDeviceName = std::move(outputDeviceName), bufferLength] () mutable {
         std::lock_guard lock { m_taskMutex };
-        return m_audioEngine->startStream(inputDeviceName, outputDeviceName, bufferLength);
+        return m_audioEngine->startStream(std::move(inputDeviceName), std::move(outputDeviceName), bufferLength);
     }) };
 
     auto result { task->result() };
@@ -247,6 +277,14 @@ auto AudioEngineManager::outputChannelRouting(const ae::audio_mixer::ChannelRout
 
 auto AudioEngineManager::outputChannelRouting(const ae::audio_device::ChannelCount_t channelCount) const -> ae::audio_mixer::ChannelRouting {
     return m_audioEngine->audioMixer()->outputRouting(channelCount);
+}
+
+auto AudioEngineManager::inputLevels(std::span<float> inputLevels) const -> void {
+    m_audioEngine->inputLevels(inputLevels);
+}
+
+auto AudioEngineManager::outputLevels(std::span<float> outputLevels) const -> void {
+    m_audioEngine->outputLevels(outputLevels);
 }
 
 auto makeAudioEngineManager(ats::AsyncTaskScheduler& scheduler,
