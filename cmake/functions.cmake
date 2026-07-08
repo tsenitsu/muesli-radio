@@ -1,0 +1,12 @@
+function(target_custom_compiler_options TARGET)
+    if(MSVC)
+        target_compile_options(${TARGET} PRIVATE /W4 /WX /w14242 /w14254 /w14287)
+    else()
+        target_compile_options(${TARGET} PRIVATE -Werror -Wall -Wextra -pedantic -Wshadow -Wconversion -Wsign-conversion -Wreorder )
+        target_compile_options(${TARGET} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:-Wpessimizing-move;-Wredundant-move>")
+
+        if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+            target_compile_options(${TARGET} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:-Wnrvo>")
+        endif()
+    endif()
+endfunction()

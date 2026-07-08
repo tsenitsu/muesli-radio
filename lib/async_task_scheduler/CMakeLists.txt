@@ -1,5 +1,7 @@
 add_library(async-task-scheduler task_executor.cpp async_task_scheduler.cpp)
 
+target_custom_compiler_options(async-task-scheduler)
+
 target_sources(async-task-scheduler
         PUBLIC
         FILE_SET cxx_modules

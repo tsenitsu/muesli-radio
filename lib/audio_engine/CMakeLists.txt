@@ -1,3 +1,30 @@
+set(MINIAUDIO_BUILD_EXAMPLES OFF)
+set(MINIAUDIO_BUILD_TESTS OFF)
+set(MINIAUDIO_NO_EXTRA_NODES ON)
+set(MINIAUDIO_NO_LIBVORBIS ON)
+set(MINIAUDIO_NO_LIBOPUS ON)
+set(MINIAUDIO_NO_SNDIO ON)
+set(MINIAUDIO_NO_AUDIO4 ON)
+set(MINIAUDIO_NO_OSS ON)
+set(MINIAUDIO_NO_AAUDIO ON)
+set(MINIAUDIO_NO_OPENSL ON)
+set(MINIAUDIO_NO_WEBAUDIO ON)
+set(MINIAUDIO_NO_CUSTOM ON)
+set(MINIAUDIO_NO_FLAC ON)
+set(MINIAUDIO_NO_MP3 ON)
+set(MINIAUDIO_NO_RESOURCE_MANAGER ON)
+set(MINIAUDIO_NO_NODE_GRAPH ON)
+set(MINIAUDIO_NO_ENGINE ON)
+set(MINIAUDIO_NO_GENERATION ON)
+
+FetchContent_Declare(
+        miniaudio
+        GIT_REPOSITORY https://github.com/mackron/miniaudio
+        GIT_TAG        master
+)
+
+FetchContent_MakeAvailable(miniaudio)
+
 add_library(audio-engine
         audio_driver.cpp
         audio_device.cpp
@@ -7,6 +34,8 @@ add_library(audio-engine
         channel_routing.cpp
         audio_recorder.cpp
 )
+
+target_custom_compiler_options(audio-engine)
 
 target_sources(audio-engine
         PUBLIC

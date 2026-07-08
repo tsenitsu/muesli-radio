@@ -13,6 +13,8 @@ add_executable(
   audio_recorder_tests.cpp
 )
 
+target_custom_compiler_options(audio-engine-unit-tests)
+
 target_link_libraries(
   audio-engine-unit-tests PRIVATE
   GTest::gtest_main

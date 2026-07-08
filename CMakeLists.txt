@@ -8,9 +8,14 @@ project(muesli-radio LANGUAGES CXX)
 set(BUILD_SHARED_LIBS OFF)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED true)
-if (NOT MSVC AND NOT GNU)
+if (NOT MSVC AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CMAKE_CXX_EXTENSIONS ON)
 endif()
+
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+
+include(functions)
+include(FetchContent)
 
 option(ENABLE_ASAN "Enable Address sanitizer" OFF)
 option(ENABLE_TSAN "Enable Thread sanitizer" OFF)
@@ -22,17 +27,30 @@ endif()
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     if (MSVC)
         if (ENABLE_ASAN)
+            set(VISAGE_ADDRESS_SANITIZER ON)
+
             add_compile_options(/fsanitize=address)
             add_link_options(/INCREMENTAL:NO)
+
+            # This avoids annotation mismatch
+            # CMake creates a hidden target called __cmake_cxx23 (you can see __cmake_cxx23.lib in your link line).
+            # You can inject the ASan flags directly into that target after it comes into existence – i.e.,
+            # after you’ve added the first library that uses import std;.
+            if(TARGET __cmake_cxx23)
+                target_compile_options(__cmake_cxx23 PRIVATE /fsanitize=address)
+                target_link_options(__cmake_cxx23 PRIVATE /INCREMENTAL:NO)
+            endif()
         endif()
         if (ENABLE_TSAN)
             message(FATAL_ERROR "Thread sanitizer is not supported by MSVC")
         endif()
     else()
         if (ENABLE_ASAN)
+            set(VISAGE_ADDRESS_SANITIZER ON)
+
             add_compile_options(-fsanitize=address,undefined,leak)
             add_link_options(-fsanitize=address,undefined,leak)
-            if (GNU)
+            if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
                 add_compile_options(-D_GLIBCXX_SANITIZE_VECTOR)
             endif()
         endif()
@@ -43,62 +61,10 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     endif()
 endif()
 
-# Fetch all libraries
-include(FetchContent)
-
-# Miniaudio
-set(MINIAUDIO_BUILD_EXAMPLES OFF)
-set(MINIAUDIO_BUILD_TESTS OFF)
-set(MINIAUDIO_NO_EXTRA_NODES ON)
-set(MINIAUDIO_NO_LIBVORBIS ON)
-set(MINIAUDIO_NO_LIBOPUS ON)
-set(MINIAUDIO_NO_SNDIO ON)
-set(MINIAUDIO_NO_AUDIO4 ON)
-set(MINIAUDIO_NO_OSS ON)
-set(MINIAUDIO_NO_AAUDIO ON)
-set(MINIAUDIO_NO_OPENSL ON)
-set(MINIAUDIO_NO_WEBAUDIO ON)
-set(MINIAUDIO_NO_CUSTOM ON)
-set(MINIAUDIO_NO_FLAC ON)
-set(MINIAUDIO_NO_MP3 ON)
-set(MINIAUDIO_NO_RESOURCE_MANAGER ON)
-set(MINIAUDIO_NO_NODE_GRAPH ON)
-set(MINIAUDIO_NO_ENGINE ON)
-set(MINIAUDIO_NO_GENERATION ON)
-
-FetchContent_Declare(
-        miniaudio
-        GIT_REPOSITORY https://github.com/mackron/miniaudio
-        GIT_TAG        master
-)
-
-FetchContent_MakeAvailable(miniaudio)
-
-# GTest
-set(INSTALL_GTEST OFF)
-
-FetchContent_Declare(
-        googletest
-        GIT_REPOSITORY https://github.com/google/googletest
-        GIT_TAG        v1.15.2
-)
-
-FetchContent_MakeAvailable(googletest)
-
-if(MSVC)
-   add_compile_options(/W4 /WX /w14242 /w14254 /w14287)
-else()
-    add_compile_options(-Werror -Wall -Wextra -pedantic -Wshadow -Wconversion -Wsign-conversion)
-    add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-Wpessimizing-move;-Wredundant-move>")
-
-    if(GNU)
-        add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-Wnrvo>")
-    endif()
-endif()
-
 add_subdirectory(lib)
 
 add_executable(muesli-radio main.cpp)
+target_custom_compiler_options(muesli-radio)
 target_link_libraries(muesli-radio PRIVATE audio-engine async-task-scheduler managers)
 
 enable_testing()

@@ -6,6 +6,8 @@ add_executable(
         resumable_task_tests.cpp
 )
 
+target_custom_compiler_options(async-task-scheduler-unit-tests)
+
 target_link_libraries(
         async-task-scheduler-unit-tests PRIVATE
         GTest::gtest_main
