@@ -43,6 +43,15 @@ public:
     auto operator==(const NativeDataFormat&) const -> bool = default;
 };
 
+export struct AudioDeviceSummary final {
+    AudioDeviceSummary(std::string deviceName, ChannelCount_t channels);
+
+    std::string m_deviceName;
+    ChannelCount_t m_channels;
+
+    auto operator==(const AudioDeviceSummary&) const -> bool = default;
+};
+
 export class AudioDevice final {
 public:
     AudioDevice(const DeviceId& id,

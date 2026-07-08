@@ -30,11 +30,15 @@ NativeDataFormat::NativeDataFormat(const audio_format::AudioFormat format,
     m_flags { flags }
 {}
 
+AudioDeviceSummary::AudioDeviceSummary(std::string deviceName, const ChannelCount_t channels)
+ :  m_deviceName { std::move(deviceName) },
+    m_channels { channels } {}
+
 AudioDevice::AudioDevice(const DeviceId& id,
-                        std::string&& name,
-                        const bool isDefault,
-                        const AudioDeviceType type,
-                        std::vector<NativeDataFormat>&& formats)
+                         std::string&& name,
+                         const bool isDefault,
+                         const AudioDeviceType type,
+                         std::vector<NativeDataFormat>&& formats)
  :  m_deviceId      { id },
     m_deviceName    { std::move(name) },
     m_isDefault     { isDefault },
