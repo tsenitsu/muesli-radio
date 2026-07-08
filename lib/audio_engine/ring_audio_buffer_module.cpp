@@ -65,7 +65,7 @@ public:
             || remainingFrames < remainingFramesToWrite) {
             ma_pcm_rb_commit_write(&m_rb, 0); // rollback
             return false;
-            }
+        }
 
         buffer.writeToRawBuffer(static_cast<G*>(writePtr), buffer.numberOfChannels(), remainingFrames, true, /* offset */ writeFrames);
 
@@ -102,6 +102,10 @@ public:
         buffer.copyFromRawBuffer(static_cast<const G*>(readPtr), buffer.numberOfChannels(), remainingFrames, true, readFrames);
 
         return ma_pcm_rb_commit_read(&m_rb, remainingFrames) == MA_SUCCESS;
+    }
+
+    auto reset() -> void {
+        ma_pcm_rb_reset(&m_rb);
     }
 
 protected:
