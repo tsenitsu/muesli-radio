@@ -18,11 +18,11 @@ export enum class AudioFormat {
 export [[nodiscard]] auto constexpr toString(const AudioFormat format) -> std::expected<std::string, std::string> {
     switch (format) {
         case AudioFormat::Unknown:         return "Unknown";
-        case AudioFormat::UnsignedInt8:    return "UnsignedInt8";
-        case AudioFormat::SignedInt16:     return "SignedInt16";
-        case AudioFormat::SignedInt24:     return "SignedInt24";
-        case AudioFormat::SignedInt32:     return "SignedInt32";
-        case AudioFormat::Float32:         return "Float32";
+        case AudioFormat::UnsignedInt8:    return "8-bit Unsigned Int";
+        case AudioFormat::SignedInt16:     return "16-bit Signed Int";
+        case AudioFormat::SignedInt24:     return "24-bit Signed Int";
+        case AudioFormat::SignedInt32:     return "32-bit Signed Int";
+        case AudioFormat::Float32:         return "32-bit Floating Point";
     };
 
     return std::unexpected { std::string { "Audio format unknown" } };
@@ -54,5 +54,11 @@ export [[nodiscard]] auto constexpr toMaFormat(const AudioFormat format) -> std:
 
     return std::unexpected { std::string { "Audio format unknown" } };
 }
+
+export constexpr std::array availableRecordingFormats {
+    AudioFormat::SignedInt16,
+    AudioFormat::SignedInt24,
+    AudioFormat::Float32
+};
 
 }

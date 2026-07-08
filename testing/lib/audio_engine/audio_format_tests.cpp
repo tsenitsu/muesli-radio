@@ -8,11 +8,11 @@ using namespace audio_engine;
 
 const std::map<audio_format::AudioFormat, std::string_view> audioFormatToString {
     { audio_format::AudioFormat::Unknown,       "Unknown" },
-    { audio_format::AudioFormat::UnsignedInt8,  "UnsignedInt8" },
-    { audio_format::AudioFormat::SignedInt16,   "SignedInt16" },
-    { audio_format::AudioFormat::SignedInt24,   "SignedInt24" },
-    { audio_format::AudioFormat::SignedInt32,   "SignedInt32" },
-    { audio_format::AudioFormat::Float32,       "Float32" }
+    { audio_format::AudioFormat::UnsignedInt8,  "8-bit Unsigned Int" },
+    { audio_format::AudioFormat::SignedInt16,   "16-bit Signed Int" },
+    { audio_format::AudioFormat::SignedInt24,   "24-bit Signed Int" },
+    { audio_format::AudioFormat::SignedInt32,   "32-bit Signed Int" },
+    { audio_format::AudioFormat::Float32,       "32-bit Floating Point" }
 };
 
 const std::map<ma_format, audio_format::AudioFormat> maFormatToAudioFormat = {
