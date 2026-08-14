@@ -45,6 +45,7 @@ private:
                                        const void* inputBuffer,
                                        ma_uint32 frameCount) -> void;
 
+    ma_device_backend_vtable* m_backend;
     ma_context m_context;
     ma_log  m_log;
     ma_device m_device;

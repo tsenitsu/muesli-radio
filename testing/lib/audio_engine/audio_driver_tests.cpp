@@ -16,10 +16,10 @@ const std::map<audio_driver::AudioDriver, std::string_view> audioDriverToString 
 #endif
 #ifdef __linux__
         { audio_driver::AudioDriver::PulseAudio,   "PulseAudio"  },
-        { audio_driver::AudioDriver::Alsa,         "ALSA"        },
         { audio_driver::AudioDriver::Jack,         "JACK"        },
+        { audio_driver::AudioDriver::Alsa,         "ALSA"        },
 #endif
-        { audio_driver::AudioDriver::Null,         "Null"        }
+     { audio_driver::AudioDriver::Null,         "Null (Silence)" }
     };
 
 TEST(AudioDriverTests, toString) {
@@ -28,14 +28,4 @@ TEST(AudioDriverTests, toString) {
     }
 
     EXPECT_EQ(audio_driver::toString(static_cast<audio_driver::AudioDriver>(55)), std::unexpected { "Audio driver unknown" });
-}
-
-TEST(AudioDriverTests, fromString) {
-    for (auto driver: audio_driver::availableAudioDrivers) {
-        if (auto found { audioDriverToString.find(driver) }; found != audioDriverToString.end()) {
-            EXPECT_EQ(audio_driver::fromString(std::string { found->second }), driver);
-        }
-    }
-
-    EXPECT_EQ(audio_driver::fromString("Core"), std::unexpected { "Audio backend unknown" });
 }

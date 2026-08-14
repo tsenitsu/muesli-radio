@@ -20,14 +20,18 @@ auto DeviceId::operator==(const DeviceId &other) const -> bool {
     return ma_device_id_equal(&m_id, &other.m_id);
 }
 
-NativeDataFormat::NativeDataFormat(const audio_format::AudioFormat format,
-                         const ChannelCount_t channels,
-                         const SampleRate_t sampleRate,
-                         const Flags_t flags)
- :  m_format { format },
-    m_channels { channels },
-    m_sampleRate { sampleRate },
-    m_flags { flags }
+NativeDataFormat::NativeDataFormat(const Flags_t flags,
+                         const audio_format::AudioFormat format,
+                         const ChannelCount_t minChannels,
+                         const ChannelCount_t maxChannels,
+                         const SampleRate_t minSampleRate,
+                         const SampleRate_t maxSampleRate)
+ :  m_flags { flags },
+    m_format  { format },
+    m_minChannels { minChannels },
+    m_maxChannels { maxChannels },
+    m_minSampleRate { minSampleRate },
+    m_maxSampleRate { maxSampleRate }
 {}
 
 AudioDeviceSummary::AudioDeviceSummary(std::string deviceName, const ChannelCount_t channels)
@@ -79,14 +83,18 @@ auto toString(const AudioDevice& device) -> std::string {
 
 auto toString(const NativeDataFormat& nativeFormat) -> std::string {
     return std::format(
+        "Flags: {}\n"
         "Format: {}\n"
-        "Channels: {}\n"
-        "Sample Rate: {}\n"
-        "Flags: {}\n",
+        "Min Channels: {}\n"
+        "Max Channels: {}\n"
+        "Min Sample Rate: {}\n"
+        "Max Sample Rate: {}\n",
+        nativeFormat.m_flags,
         audio_format::toString(nativeFormat.m_format).value(),
-        nativeFormat.m_channels,
-        nativeFormat.m_sampleRate,
-        nativeFormat.m_flags);
+        nativeFormat.m_minChannels,
+        nativeFormat.m_maxChannels,
+        nativeFormat.m_minSampleRate,
+        nativeFormat.m_maxSampleRate);
 }
 
 }

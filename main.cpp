@@ -27,7 +27,7 @@ auto main() -> int {
     if (result.has_value()) {
         auto audioEngineManagerResult { managers::makeAudioEngineManager(
             *asyncTaskScheduler,
-            [] (const std::string& log) { std::print("{}", log); }
+            [] (const std::string& log) { std::println("{}", log); }
         ) };
 
         if (not audioEngineManagerResult.has_value()) {

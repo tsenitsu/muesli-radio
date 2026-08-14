@@ -15,18 +15,23 @@ export template <typename T> requires std::is_arithmetic_v<T> and (not std::same
 class RingAudioBuffer final {
 public:
     RingAudioBuffer(const audio_device::ChannelCount_t channelCount, const audio_stream_params::BufferLength_t bufferLength)
-      : m_rb {}
+      : m_rb {},
+        m_channels { channelCount }
     {
         constexpr auto format = getAudioFormat();
         const auto maFormat = audio_format::toMaFormat(format).value();
 
-        if (ma_pcm_rb_init(maFormat, channelCount, bufferLength, nullptr, nullptr, &m_rb) != MA_SUCCESS) {
+        ma_audio_ring_buffer_config bufferConfig { ma_audio_ring_buffer_config_init(maFormat, channelCount, 0, bufferLength) };
+        bufferConfig.pBuffer = nullptr;
+        bufferConfig.pAllocationCallbacks = nullptr;
+
+        if (ma_audio_ring_buffer_init(&bufferConfig, &m_rb) != MA_SUCCESS) {
             throw std::runtime_error("Unable to initialize ring buffer");
         }
     }
 
     ~RingAudioBuffer() {
-        ma_pcm_rb_uninit(&m_rb);
+        ma_audio_ring_buffer_uninit(&m_rb);
     }
 
     RingAudioBuffer(const RingAudioBuffer&) = delete;
@@ -40,72 +45,87 @@ public:
             return false;
         }
 
-        void* writePtr { nullptr };
-        auto writeFrames { buffer.bufferLength() };
+        const auto totalFrames { buffer.bufferLength() };
+        auto remaining { totalFrames };
+        auto offset { audio_stream_params::BufferLength_t { 0 } };  // offset in the source buffer
 
-        if (ma_pcm_rb_acquire_write(&m_rb, &writeFrames, &writePtr) != MA_SUCCESS) {
-            return false;
+        while (remaining > 0) {
+            void* writePtr { nullptr };
+            const auto framesToWrite { remaining };
+
+            // Try to map the next contiguous block
+            auto framesMapped { ma_audio_ring_buffer_map_produce(&m_rb, framesToWrite, &writePtr) };
+            if (framesMapped == 0) {
+                // No space left – we might have partially written data already.
+                // Since we commit immediately after writing, we cannot roll back.
+                // For simplicity, return false; caller should retry.
+                return false;
+            }
+
+            // Write the mapped frames
+            buffer.writeToRawBuffer(static_cast<G*>(writePtr), buffer.numberOfChannels(),
+                                    framesMapped, true, offset);
+
+            // Commit the write
+            ma_audio_ring_buffer_unmap_produce(&m_rb, framesMapped);
+
+            remaining -= framesMapped;
+            offset    += framesMapped;
         }
 
-        const auto remainingFramesToWrite { buffer.bufferLength() - writeFrames };
-
-        buffer.writeToRawBuffer(static_cast<G*>(writePtr), buffer.numberOfChannels(), writeFrames, true);
-
-        if (ma_pcm_rb_commit_write(&m_rb, writeFrames) != MA_SUCCESS) {
-            return false;
-        }
-
-        if (remainingFramesToWrite == 0) {
-            return true;
-        }
-
-        // Handle wrap-around: write the remaining frames from the start of the buffer
-        auto remainingFrames { remainingFramesToWrite };
-        if (ma_pcm_rb_acquire_write(&m_rb, &remainingFrames, &writePtr) != MA_SUCCESS
-            || remainingFrames < remainingFramesToWrite) {
-            ma_pcm_rb_commit_write(&m_rb, 0); // rollback
-            return false;
-        }
-
-        buffer.writeToRawBuffer(static_cast<G*>(writePtr), buffer.numberOfChannels(), remainingFrames, true, /* offset */ writeFrames);
-
-        return ma_pcm_rb_commit_write(&m_rb, remainingFrames) == MA_SUCCESS;
+        return true;
     }
 
     template <typename G> requires std::same_as<T, G>
     [[nodiscard]] auto dequeue(audio_buffer::AudioBuffer<G>& buffer) -> bool {
-        const auto totalFramesToRead { ma_pcm_rb_available_read(&m_rb) };
+        auto availableFrames { audio_stream_params::BufferLength_t { 0 } };
 
-        buffer.resize(ma_pcm_rb_get_channels(&m_rb), totalFramesToRead);
-
-        void* readPtr { nullptr };
-        auto readFrames { totalFramesToRead };
-
-        if (ma_pcm_rb_acquire_read(&m_rb, &readFrames, &readPtr) != MA_SUCCESS) {
+        if (ma_audio_ring_buffer_get_length_in_pcm_frames(&m_rb, &availableFrames) != MA_SUCCESS) {
             return false;
         }
 
-        buffer.copyFromRawBuffer(static_cast<const G*>(readPtr), buffer.numberOfChannels(), readFrames, true, 0);
+        // Pre‑size the output buffer
+        buffer.resize(m_channels, availableFrames);
 
-        if (ma_pcm_rb_commit_read(&m_rb, readFrames) != MA_SUCCESS) {
-            return false;
+        auto remaining { availableFrames };
+        auto offset { audio_stream_params::BufferLength_t { 0 } };
+
+        while (remaining > 0) {
+            void* readPtr { nullptr };
+            const auto framesToRead { remaining };
+
+            auto framesMapped { ma_audio_ring_buffer_map_consume(&m_rb, framesToRead, &readPtr) };
+            if (framesMapped == 0) {
+                return false;  // unexpected – we already know there is data
+            }
+
+            buffer.copyFromRawBuffer(static_cast<const G*>(readPtr), buffer.numberOfChannels(),
+                                     framesMapped, true, offset);
+
+            ma_audio_ring_buffer_unmap_consume(&m_rb, framesMapped);
+
+            remaining -= framesMapped;
+            offset    += framesMapped;
         }
 
-        const auto remainingFramesToRead { totalFramesToRead - readFrames };
-        if (remainingFramesToRead == 0)
-            return true;
-
-        auto remainingFrames { remainingFramesToRead };
-        if (ma_pcm_rb_acquire_read(&m_rb, &remainingFrames, &readPtr) != MA_SUCCESS or remainingFrames < remainingFramesToRead)
-            return false;
-
-        buffer.copyFromRawBuffer(static_cast<const G*>(readPtr), buffer.numberOfChannels(), remainingFrames, true, readFrames);
-
-        return ma_pcm_rb_commit_read(&m_rb, remainingFrames) == MA_SUCCESS;
+        return true;
     }
 
     auto reset() -> void {
-        ma_pcm_rb_reset(&m_rb);
+        ma_uint32 available {};
+
+        while (ma_audio_ring_buffer_get_length_in_pcm_frames(&m_rb, &available) == MA_SUCCESS && available > 0) {
+            void* discardPtr { nullptr };
+
+            const ma_uint32 framesToDiscard { available };
+            const ma_uint32 framesMapped { ma_audio_ring_buffer_map_consume(&m_rb, framesToDiscard, &discardPtr) };
+
+            if (framesMapped == 0) {
+                break; // should not happen if available > 0
+            }
+
+            ma_audio_ring_buffer_unmap_consume(&m_rb, framesMapped);
+        }
     }
 
 protected:
@@ -140,11 +160,12 @@ protected:
     }
 
     [[nodiscard]] auto isAudioBufferCompatible(const audio_device::ChannelCount_t numberOfChannels) const -> bool {
-        return ma_pcm_rb_get_channels(&m_rb) == numberOfChannels;
+        return m_channels == numberOfChannels;
     }
 
 private:
-    ma_pcm_rb m_rb;
+    ma_audio_ring_buffer m_rb;
+    audio_device::ChannelCount_t m_channels;
 };
 
 export template <typename T>

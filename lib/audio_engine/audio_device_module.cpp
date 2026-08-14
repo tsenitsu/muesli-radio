@@ -30,15 +30,19 @@ export enum class AudioDeviceType {
 
 export class NativeDataFormat {
 public:
-    NativeDataFormat(audio_format::AudioFormat format,
-                     ChannelCount_t channels,
-                     SampleRate_t sampleRate,
-                     Flags_t flags);
+    NativeDataFormat(Flags_t flags,
+                     audio_format::AudioFormat format,
+                     ChannelCount_t minChannels,
+                     ChannelCount_t maxChannels,
+                     SampleRate_t minSampleRate,
+                     SampleRate_t maxSampleRate);
 
-    audio_format::AudioFormat m_format;
-    ChannelCount_t m_channels;
-    SampleRate_t m_sampleRate;
     Flags_t m_flags;
+    audio_format::AudioFormat m_format;
+    ChannelCount_t m_minChannels;
+    ChannelCount_t m_maxChannels;
+    SampleRate_t m_minSampleRate;
+    SampleRate_t m_maxSampleRate;
 
     auto operator==(const NativeDataFormat&) const -> bool = default;
 };

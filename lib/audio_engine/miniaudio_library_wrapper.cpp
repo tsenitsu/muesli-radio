@@ -6,12 +6,18 @@ namespace audio_engine::audio_library_wrapper {
 
 MiniaudioLibraryWrapper::MiniaudioLibraryWrapper(const LogCallback& logCallback, const audio_driver::AudioDriver audioDriver)
  :  AudioLibraryWrapper { logCallback },
+    m_backend { nullptr },
     m_context {},
     m_log {},
     m_device {} {
 
     const auto backendResult { audio_driver::toBackend(audioDriver) };
-    const std::array backendList { backendResult.value() };
+
+    if (not backendResult.has_value()) {
+        throw std::runtime_error { std::format("Error initializing the audio engine: {}", backendResult.error()) };
+    }
+
+    const std::array backendConfigs { ma_device_backend_config { .pVTable = backendResult.value(), .pConfig = nullptr } };
 
     if (ma_log_init(nullptr, &m_log) != MA_SUCCESS) {
         throw std::runtime_error { "Error initializing miniaudio log" };
@@ -24,9 +30,11 @@ MiniaudioLibraryWrapper::MiniaudioLibraryWrapper(const LogCallback& logCallback,
     ma_context_config contextConfig { ma_context_config_init() };
     contextConfig.pLog = &m_log;
 
-    if (ma_context_init(backendList.data(), static_cast<ma_uint32>(backendList.size()), &contextConfig, &m_context) != MA_SUCCESS) {
+    if (ma_context_init(backendConfigs.data(), static_cast<ma_uint32>(backendConfigs.size()), &contextConfig, &m_context) != MA_SUCCESS) {
         throw std::runtime_error { "Error initializing miniaudio context" };
     }
+
+    m_backend = backendResult.value();
 }
 
 MiniaudioLibraryWrapper::~MiniaudioLibraryWrapper() {
@@ -57,14 +65,14 @@ auto MiniaudioLibraryWrapper::probeDevices() -> std::expected<std::vector<std::u
 
         std::vector<audio_device::NativeDataFormat> formats {};
 
-        for (const auto [format, channels, sampleRate, flags]: std::span { outputDevices[i].nativeDataFormats, outputDevices[i].nativeDataFormatCount }) {
+        for (const auto [flags, format, minChannels, maxChannels, minSampleRate, maxSampleRate, channels, sampleRate]: std::span { outputDevices[i].nativeDataFormats, outputDevices[i].nativeDataFormatCount }) {
             const auto formatResult { audio_format::toAudioFormat(format) };
 
             if (not formatResult.has_value()) {
                 return std::unexpected { std::string { std::format("Unknown format for output device {}", outputDevices[i].name) } };
             }
 
-            formats.emplace_back(audio_device::NativeDataFormat { formatResult.value(), channels, sampleRate, flags });
+            formats.emplace_back(audio_device::NativeDataFormat { flags, formatResult.value(), minChannels, maxChannels, minSampleRate, maxSampleRate });
         }
 
         if (formats.empty()) {
@@ -85,14 +93,14 @@ auto MiniaudioLibraryWrapper::probeDevices() -> std::expected<std::vector<std::u
 
         std::vector<audio_device::NativeDataFormat> formats {};
 
-        for (const auto [format, channels, sampleRate, flags]: std::span { inputDevices[i].nativeDataFormats, inputDevices[i].nativeDataFormatCount }) {
+        for (const auto [flags, format, minChannels, maxChannels, minSampleRate, maxSampleRate, channels, sampleRate]: std::span { inputDevices[i].nativeDataFormats, inputDevices[i].nativeDataFormatCount }) {
             const auto formatResult { audio_format::toAudioFormat(format) };
 
             if (not formatResult.has_value()) {
                 return std::unexpected { std::string { std::format("Unknown format for input device {}", inputDevices[i].name) } };
             }
 
-            formats.emplace_back(audio_device::NativeDataFormat { formatResult.value(), channels, sampleRate, flags });
+            formats.emplace_back(audio_device::NativeDataFormat { flags, formatResult.value(), minChannels, maxChannels, minSampleRate, maxSampleRate });
         }
 
         if (formats.empty()) {
@@ -110,7 +118,7 @@ auto MiniaudioLibraryWrapper::probeDevices() -> std::expected<std::vector<std::u
 }
 
 auto MiniaudioLibraryWrapper::audioDriver() const -> std::expected<audio_driver::AudioDriver, std::string> {
-    return audio_driver::toAudioDriver(m_context.backend);
+    return audio_driver::toAudioDriver(m_backend);
 }
 
 auto MiniaudioLibraryWrapper::openStream(const audio_stream_params::AudioStreamParams& audioStreamParams, const AudioCallback& audioCallback) -> bool {
@@ -182,12 +190,12 @@ auto MiniaudioLibraryWrapper::stopStream() -> bool {
 }
 
 auto MiniaudioLibraryWrapper::isStreamOpen() const -> bool {
-    return ma_device_get_state(&m_device) != ma_device_state_uninitialized;
+    return ma_device_get_status(&m_device) != ma_device_status_uninitialized;
 }
 
 auto MiniaudioLibraryWrapper::isStreamRunning() const -> bool {
-    const auto deviceState { ma_device_get_state(&m_device) };
-    return deviceState == ma_device_state_started or deviceState == ma_device_state_starting;
+    const auto deviceState { ma_device_get_status(&m_device) };
+    return deviceState == ma_device_status_started or deviceState == ma_device_status_starting;
 }
 
 auto MiniaudioLibraryWrapper::miniaudioLogCallback(void* userData, [[maybe_unused]] ma_uint32 logLevel, const char* logMessage) -> void {

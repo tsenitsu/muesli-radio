@@ -98,7 +98,7 @@ public:
         if (inputDeviceName.has_value()) {
             if (const auto deviceItrResult { getAudioDevice(inputDeviceName.value(), audio_device::AudioDeviceType::Input) }; deviceItrResult.has_value()) {
                 inputDeviceId = deviceItrResult.value()->get()->m_deviceId;
-                inputChannelCount = deviceItrResult.value()->get()->m_nativeDataFormats[0].m_channels;
+                inputChannelCount = deviceItrResult.value()->get()->m_nativeDataFormats[0].m_maxChannels;
             } else {
                 return std::unexpected { std::format("Could not find input device {}: {}", inputDeviceName.value(), deviceItrResult.error()) };
             }
@@ -110,7 +110,7 @@ public:
         if (outputDeviceName.has_value()) {
             if (const auto deviceItrResult { getAudioDevice(outputDeviceName.value(), audio_device::AudioDeviceType::Output) }; deviceItrResult.has_value()) {
                 outputDeviceId = deviceItrResult.value()->get()->m_deviceId;
-                outputChannelCount = deviceItrResult.value()->get()->m_nativeDataFormats[0].m_channels;
+                outputChannelCount = deviceItrResult.value()->get()->m_nativeDataFormats[0].m_maxChannels;
             } else {
                 return std::unexpected { std::format("Could not find output device {}: {}", outputDeviceName.value(), deviceItrResult.error()) };
             }
@@ -374,7 +374,7 @@ protected:
         std::vector<audio_device::AudioDeviceSummary> audioDeviceSummaryList {};
         for (auto& device : m_audioDevices
                             | std::views::filter([&deviceType] (const auto& audioDevice) { return audioDevice->m_type == deviceType; })) {
-            audioDeviceSummaryList.emplace_back(device->m_deviceName, device->m_nativeDataFormats[0].m_channels);
+            audioDeviceSummaryList.emplace_back(device->m_deviceName, device->m_nativeDataFormats[0].m_maxChannels);
         }
 
         return audioDeviceSummaryList;

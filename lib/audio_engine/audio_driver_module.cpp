@@ -17,16 +17,15 @@ export enum class AudioDriver {
 #endif
 #ifdef __linux__
     PulseAudio,
-    Alsa,
     Jack,
+    Alsa,
 #endif
     Null
 };
 
 export [[nodiscard]] auto toString(AudioDriver driver) -> std::expected<std::string, std::string>;
-export [[nodiscard]] auto fromString(std::string_view driver) -> std::expected<AudioDriver, std::string>;
-export [[nodiscard]] auto toBackend(AudioDriver driver) -> std::expected<ma_backend, std::string>;
-export [[nodiscard]] auto toAudioDriver(ma_backend backend) -> std::expected<AudioDriver, std::string>;
+export [[nodiscard]] auto toBackend(AudioDriver driver) -> std::expected<ma_device_backend_vtable*, std::string>;
+export [[nodiscard]] auto toAudioDriver(const ma_device_backend_vtable* backend) -> std::expected<AudioDriver, std::string>;
 
 export constexpr std::array availableAudioDrivers {
 #ifdef _WIN32
@@ -39,8 +38,8 @@ export constexpr std::array availableAudioDrivers {
 #endif
 #ifdef __linux__
     AudioDriver::PulseAudio,
-    AudioDriver::Alsa,
     AudioDriver::Jack,
+    AudioDriver::Alsa,
 #endif
 #ifndef NDEBUG
     AudioDriver::Null
