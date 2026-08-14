@@ -2,7 +2,7 @@
 A multitrack input and output audio recorder written in C++.
 
 ## Building
-You need ninja on both Windows and Linux and CMake version 4.2.2. On Windows, no additional libraries
+You need ninja on both Windows and Linux and CMake version 4.3.1. On Windows, no additional libraries
 are required. On Linux, you need to install graphics libraries (list to be updated).
 
 Building with CMake for Windows and Linux (GCC):
