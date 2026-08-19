@@ -127,21 +127,23 @@ auto AudioEngineManager::startStream(std::optional<std::string> inputDeviceName,
     return result;
 }
 
-ats::ResumableTask<void> write(std::mutex& mutex, const std::unique_ptr<ae::AudioEngine<ae::audio_library_wrapper::MiniaudioLibraryWrapper>>& audioEngine) {
+ats::ResumableTask<void> write(const std::chrono::milliseconds& triggerInterval, std::mutex& mutex, const std::unique_ptr<ae::AudioEngine<ae::audio_library_wrapper::MiniaudioLibraryWrapper>>& audioEngine) {
     std::unique_lock writeLock { mutex, std::defer_lock };
     auto writeResult { false };
+    auto triggerTime { std::chrono::steady_clock::now() + triggerInterval };
 
     while (true) {
         // This needs to be placed before the write operation otherwise the audio buffer to write
         // is empty. Need to get some samples in the audio buffer
-
-        std::this_thread::sleep_for(std::chrono::milliseconds { 500 });
+        if (std::chrono::steady_clock::now() < triggerTime) co_await std::suspend_always {};
 
         writeLock.lock();
         writeResult = audioEngine->write();
         writeLock.unlock();
 
         if (not writeResult) co_return;
+
+        triggerTime += triggerInterval;
         co_await std::suspend_always {};
     }
 }
@@ -161,7 +163,7 @@ auto AudioEngineManager::startRecording(const ae::audio_format::AudioFormat form
         return taskResult;
     }
 
-    std::unique_ptr<ats::AsyncTask> writeTask { ats::makeResumableTask<void>(write(m_taskMutex, m_audioEngine)) };
+    std::unique_ptr<ats::AsyncTask> writeTask { ats::makeResumableTask<void>(write(std::chrono::milliseconds { 500 }, m_taskMutex, m_audioEngine)) };
     m_writeTaskDependency = writeTask->dependency();
 
     enqueueTasks(std::move(writeTask));

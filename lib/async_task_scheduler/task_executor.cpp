@@ -58,6 +58,8 @@ auto TaskExecutor::executeTasks(const std::stop_token& stopHandle) -> void {
         }
 
         m_pendingTasks.clear();
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
     } while (not stopHandle.stop_requested());
 }
 
