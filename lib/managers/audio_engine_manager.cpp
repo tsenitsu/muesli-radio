@@ -20,6 +20,7 @@ AudioEngineManager::AudioEngineManager(ats::AsyncTaskScheduler& scheduler, const
 
 AudioEngineManager::~AudioEngineManager() {
     stopRecording();
+    waitForAllTasks();
 }
 
 auto AudioEngineManager::allowedBufferLengths() -> decltype(ae::AudioEngine<ae::audio_library_wrapper::MiniaudioLibraryWrapper>::allowedBufferLengths())& {
@@ -127,7 +128,7 @@ auto AudioEngineManager::startStream(std::optional<std::string> inputDeviceName,
     return result;
 }
 
-ats::ResumableTask<void> write(const std::chrono::milliseconds& triggerInterval, std::mutex& mutex, const std::unique_ptr<ae::AudioEngine<ae::audio_library_wrapper::MiniaudioLibraryWrapper>>& audioEngine) {
+ats::ResumableTask<void> write(std::chrono::milliseconds triggerInterval, std::mutex& mutex, const std::unique_ptr<ae::AudioEngine<ae::audio_library_wrapper::MiniaudioLibraryWrapper>>& audioEngine) {
     std::unique_lock writeLock { mutex, std::defer_lock };
     auto writeResult { false };
     auto triggerTime { std::chrono::steady_clock::now() + triggerInterval };
@@ -135,7 +136,8 @@ ats::ResumableTask<void> write(const std::chrono::milliseconds& triggerInterval,
     while (true) {
         // This needs to be placed before the write operation otherwise the audio buffer to write
         // is empty. Need to get some samples in the audio buffer
-        if (std::chrono::steady_clock::now() < triggerTime) co_await std::suspend_always {};
+        while (std::chrono::steady_clock::now() < triggerTime)
+            co_await std::suspend_always {};
 
         writeLock.lock();
         writeResult = audioEngine->write();
