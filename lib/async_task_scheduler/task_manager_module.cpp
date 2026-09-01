@@ -11,35 +11,43 @@ export class TaskManager {
 public:
     template <typename... Task> requires (std::is_convertible_v<Task, std::unique_ptr<AsyncTask>> && ...) and (sizeof...(Task) > 0)
     auto enqueueTasks(Task&&... tasks) -> void {
+        thread_local std::mt19937 engine { std::random_device{}() };
+        std::uniform_int_distribution<unsigned int> distribution { 0, m_scheduler.concurrencyLevel() - 1 };
 
-        if constexpr (sizeof...(Task) == 1) {
-            m_scheduler.enqueueTask(std::move(tasks...), m_threadId);
-            updateThreadId();
-        } else {
-            std::vector<std::unique_ptr<AsyncTask>> taskVector {};
-            taskVector.reserve(sizeof...(tasks));
-            (taskVector.emplace_back(std::forward<Task>(tasks)), ...);
+        std::vector<Dependency> taskDependencies {};
+        taskDependencies.reserve(sizeof...(Task));
+        (taskDependencies.emplace_back(tasks->dependency()), ...); // First capture dependencies
 
-            for (auto& task: taskVector) {
-                m_scheduler.enqueueTask(std::move(task), m_threadId);
-                updateThreadId();
-            }
+        (m_scheduler.enqueueTask(std::forward<Task>(tasks), distribution(engine)), ...); // Then move the tasks
+
+        {
+            std::lock_guard lock { m_pendingTasksMutex };
+            m_pendingTasks.insert(std::ranges::end(m_pendingTasks), std::make_move_iterator(std::ranges::begin(taskDependencies)), std::make_move_iterator(std::ranges::end(taskDependencies)));
+            std::erase_if(m_pendingTasks, [](const auto& dependency) { return dependency.waitFor(std::chrono::milliseconds(0)); });
         }
     }
 
     explicit TaskManager(AsyncTaskScheduler& scheduler)
-     :  m_scheduler { scheduler },
-        m_concurrencyLevel { m_scheduler.concurrencyLevel() },
-        m_threadId { 0 } {}
+     :  m_scheduler { scheduler } {}
 
     virtual ~TaskManager() = default;
 
-private:
-    auto updateThreadId() -> void { m_threadId = (m_threadId + 1) % m_scheduler.concurrencyLevel(); }
+protected:
+    auto waitForAllTasks() -> void {
+        std::vector<Dependency> tasksToWait {};
+        {
+            std::lock_guard lock { m_pendingTasksMutex };
+            tasksToWait.swap(m_pendingTasks);
+        }
 
+        for (const auto& dependency : tasksToWait)
+            dependency.wait();
+    }
+
+private:
     AsyncTaskScheduler& m_scheduler;
-    unsigned int m_concurrencyLevel;
-    unsigned int m_threadId;
+    std::mutex m_pendingTasksMutex;
+    std::vector<Dependency> m_pendingTasks;
 };
 
 export [[nodiscard]] auto makeTaskManager(AsyncTaskScheduler& scheduler) -> std::unique_ptr<TaskManager> {
