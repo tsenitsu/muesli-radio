@@ -5,6 +5,7 @@ import std;
 import task_manager;
 import async_task_scheduler;
 import audio_engine;
+import logger_manager;
 
 namespace ae = audio_engine;
 namespace ats = async_task_scheduler;
@@ -13,7 +14,7 @@ namespace managers {
 
 export class AudioEngineManager final: public ats::TaskManager {
 public:
-    AudioEngineManager(ats::AsyncTaskScheduler& scheduler, const ae::audio_library_wrapper::LogCallback& logCallback);
+    AudioEngineManager(ats::AsyncTaskScheduler& scheduler, LoggerManager& loggerManager);
     ~AudioEngineManager() override;
 
     [[nodiscard]] static auto allowedBufferLengths() -> decltype(ae::AudioEngine<ae::audio_library_wrapper::MiniaudioLibraryWrapper>::allowedBufferLengths())&;
@@ -60,12 +61,13 @@ public:
 
 private:
     std::mutex m_taskMutex;
+    LoggerManager& m_loggerManager;
     ae::audio_library_wrapper::LogCallback m_logCallback;
     std::unique_ptr<ae::AudioEngine<ae::audio_library_wrapper::MiniaudioLibraryWrapper>> m_audioEngine;
     std::optional<ats::Dependency> m_writeTaskDependency;
 };
 
 export [[nodiscard]] auto makeAudioEngineManager(ats::AsyncTaskScheduler& scheduler,
-    const ae::audio_library_wrapper::LogCallback& logCallback) -> std::expected<std::unique_ptr<AudioEngineManager>, std::string>;
+    LoggerManager& loggerManager) -> std::expected<std::unique_ptr<AudioEngineManager>, std::string>;
 
 }

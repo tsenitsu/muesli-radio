@@ -5,13 +5,14 @@ namespace ats = async_task_scheduler;
 
 namespace managers {
 
-AudioEngineManager::AudioEngineManager(ats::AsyncTaskScheduler& scheduler, const ae::audio_library_wrapper::LogCallback &logCallback)
+AudioEngineManager::AudioEngineManager(ats::AsyncTaskScheduler& scheduler, LoggerManager& loggerManager)
   : TaskManager { scheduler },
     m_taskMutex {},
-    m_logCallback { logCallback },
+    m_loggerManager { loggerManager },
+    m_logCallback { [this] (std::optional<std::unique_ptr<logger::LogEntry>> entry) { m_loggerManager.enqueueLogEntry(std::move(entry)); } },
     m_audioEngine { nullptr },
     m_writeTaskDependency { std::nullopt } {
-    if (auto audioEngineResult { ae::makeAudioEngine<ae::audio_library_wrapper::MiniaudioLibraryWrapper>(logCallback) }; not audioEngineResult.has_value()) {
+    if (auto audioEngineResult { ae::makeAudioEngine<ae::audio_library_wrapper::MiniaudioLibraryWrapper>(m_logCallback) }; not audioEngineResult.has_value()) {
         throw std::runtime_error { std::string { std::format("Error creating audio engine: {}",  audioEngineResult.error()) } };
     } else {
         m_audioEngine.swap(audioEngineResult.value());
@@ -292,9 +293,9 @@ auto AudioEngineManager::outputLevels(std::span<float> outputLevels) const -> vo
 }
 
 auto makeAudioEngineManager(ats::AsyncTaskScheduler& scheduler,
-                            const ae::audio_library_wrapper::LogCallback& logCallback) -> std::expected<std::unique_ptr<AudioEngineManager>, std::string> {
+                            LoggerManager& loggerManager) -> std::expected<std::unique_ptr<AudioEngineManager>, std::string> {
     try {
-        return std::make_unique<AudioEngineManager>(scheduler, logCallback);
+        return std::make_unique<AudioEngineManager>(scheduler, loggerManager);
     } catch (const std::exception& e) {
         return std::unexpected { std::string { e.what() } };
     }

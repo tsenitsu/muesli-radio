@@ -30,8 +30,7 @@ auto main() -> int {
 
     if (result.has_value()) {
         auto audioEngineManagerResult { managers::makeAudioEngineManager(
-            *asyncTaskScheduler,
-            [&] (std::optional<std::unique_ptr<logger::LogEntry>> entry) { loggerManager->enqueueLogEntry(std::move(entry)); }
+            *asyncTaskScheduler, *loggerManager
         ) };
 
         if (not audioEngineManagerResult.has_value()) {
