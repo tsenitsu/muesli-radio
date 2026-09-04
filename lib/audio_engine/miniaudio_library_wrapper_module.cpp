@@ -37,7 +37,7 @@ private:
     // bug entirely: they have unconditional access to all inherited protected
     // members with no module boundary involved.
     static auto miniaudioLogCallback(void* userData,
-                                     ma_uint32 logLevel,
+                                     ma_uint32 miniaudioLogLevel,
                                      const char* logMessage) -> void;
 
     static auto miniaudioAudioCallback(ma_device* device,

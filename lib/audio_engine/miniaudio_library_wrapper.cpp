@@ -2,6 +2,8 @@ module;
 #include <miniaudio.h>
 module miniaudio_library_wrapper;
 
+import logger;
+
 namespace audio_engine::audio_library_wrapper {
 
 MiniaudioLibraryWrapper::MiniaudioLibraryWrapper(const LogCallback& logCallback, const audio_driver::AudioDriver audioDriver)
@@ -42,7 +44,7 @@ MiniaudioLibraryWrapper::~MiniaudioLibraryWrapper() {
     ma_log_uninit(&m_log);
 
     if (ma_context_uninit(&m_context) != MA_SUCCESS)
-        m_logCallback("Failed to uninitialize miniaudio context\n");
+        m_logCallback(logger::makeLogEntry(logger::LogLevel::Error, "Miniaudio", "Failed to uninitialize miniaudio context"));
 }
 
 auto MiniaudioLibraryWrapper::probeDevices() -> std::expected<std::vector<std::unique_ptr<const audio_device::AudioDevice> >, std::string> {
@@ -198,8 +200,18 @@ auto MiniaudioLibraryWrapper::isStreamRunning() const -> bool {
     return deviceState == ma_device_status_started or deviceState == ma_device_status_starting;
 }
 
-auto MiniaudioLibraryWrapper::miniaudioLogCallback(void* userData, [[maybe_unused]] ma_uint32 logLevel, const char* logMessage) -> void {
-    static_cast<MiniaudioLibraryWrapper*>(userData)->m_logCallback(std::string { "miniaudio: " }.append(std::string { logMessage }));
+auto MiniaudioLibraryWrapper::miniaudioLogCallback(void* userData, const ma_uint32 miniaudioLogLevel, const char* logMessage) -> void {
+    auto convertedLogLevel { logger::LogLevel::Debug };
+
+    switch (miniaudioLogLevel) {
+        case MA_LOG_LEVEL_DEBUG:    convertedLogLevel = logger::LogLevel::Debug;    break;
+        case MA_LOG_LEVEL_INFO:     convertedLogLevel = logger::LogLevel::Info;     break;
+        case MA_LOG_LEVEL_WARNING:  convertedLogLevel = logger::LogLevel::Warning;  break;
+        case MA_LOG_LEVEL_ERROR:    convertedLogLevel = logger::LogLevel::Error;    break;
+        default: break;
+    }
+
+    static_cast<MiniaudioLibraryWrapper*>(userData)->m_logCallback(logger::makeLogEntry(convertedLogLevel, "Miniaudio", logMessage));
 }
 
 auto MiniaudioLibraryWrapper::miniaudioAudioCallback(ma_device* device, void* outputBuffer, const void* inputBuffer, ma_uint32 frameCount) -> void {

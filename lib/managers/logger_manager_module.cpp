@@ -1,0 +1,32 @@
+export module logger_manager;
+
+import std;
+
+import logger;
+import task_manager;
+import async_task_scheduler;
+
+namespace ats = async_task_scheduler;
+
+namespace managers {
+
+export class LoggerManager final: public ats::TaskManager {
+public:
+    explicit LoggerManager(ats::AsyncTaskScheduler& scheduler);
+    ~LoggerManager() override;
+
+    auto enqueueLogEntry(std::optional<std::unique_ptr<logger::LogEntry>> entry) -> void;
+    auto flushLogs() -> void;
+
+    [[nodiscard]] auto isLoggingEnabled() const -> bool;
+
+private:
+    std::unique_ptr<logger::Logger> m_logger;
+    std::mutex m_logEntriesMutex;
+    std::vector<std::unique_ptr<logger::LogEntry>> m_logEntries;
+    std::atomic_bool m_loggingEnabled;
+};
+
+export [[nodiscard]] auto makeLoggerManager(ats::AsyncTaskScheduler& scheduler) -> std::unique_ptr<LoggerManager>;
+
+}

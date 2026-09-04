@@ -66,4 +66,4 @@ target_sources(audio-engine
         audio_recorder_module.cpp
 )
 
-target_link_libraries(audio-engine PRIVATE miniaudio)
+target_link_libraries(audio-engine PRIVATE miniaudio logger)

@@ -5,11 +5,12 @@ import audio_device;
 import audio_driver;
 import audio_stream_params;
 import audio_buffer;
+import logger;
 
 namespace audio_engine::audio_library_wrapper {
 
 export using AudioCallback = std::function<void(audio_buffer::AudioBuffer<float>& inputBuffer, audio_buffer::AudioBuffer<float>& outputBuffer)>;
-export using LogCallback = std::function<void(const std::string& log)>;
+export using LogCallback = std::function<void(std::optional<std::unique_ptr<logger::LogEntry>>)>;
 
 export class AudioLibraryWrapper {
 public:
