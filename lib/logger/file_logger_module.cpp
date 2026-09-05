@@ -10,7 +10,7 @@ export class FileLogger final : public Logger {
 public:
     FileLogger(std::filesystem::path filePath, std::uintmax_t maxFileSize);
 
-    auto log(const std::vector<std::unique_ptr<LogEntry>>& entries) -> void override;
+    auto log(std::span<const LogEntry> entries) -> void override;
 
 private:
     [[nodiscard]] auto openFile() -> bool;

@@ -47,7 +47,7 @@ LoggerManager::~LoggerManager() {
     flushLogs();
 }
 
-auto LoggerManager::enqueueLogEntry(std::optional<std::unique_ptr<logger::LogEntry>> entry) -> void {
+auto LoggerManager::enqueueLogEntry(std::optional<logger::LogEntry> entry) -> void {
     if (not entry.has_value())
         return;
 
@@ -56,13 +56,13 @@ auto LoggerManager::enqueueLogEntry(std::optional<std::unique_ptr<logger::LogEnt
 }
 
 auto LoggerManager::flushLogs() -> void {
-    std::vector<std::unique_ptr<logger::LogEntry>> logEntriesToFlush {};
+    std::vector<logger::LogEntry> logEntriesToFlush {};
     {
         std::lock_guard lock { m_logEntriesMutex };
         logEntriesToFlush.swap(m_logEntries);
     }
 
-    std::ranges::sort(logEntriesToFlush, [] (const auto& first, const auto& second) { return first->m_timestamp < second->m_timestamp; });
+    std::ranges::sort(logEntriesToFlush, [] (const auto& first, const auto& second) { return first.m_timestamp < second.m_timestamp; });
     m_logger->log(logEntriesToFlush);
 }
 

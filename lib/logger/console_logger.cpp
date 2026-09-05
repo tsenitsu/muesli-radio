@@ -2,9 +2,9 @@ module console_logger;
 
 namespace logger {
 
-auto ConsoleLogger::log(const std::vector<std::unique_ptr<LogEntry>>& entries) -> void {
+auto ConsoleLogger::log(std::span<const LogEntry> entries) -> void {
     for (auto& logEntry : entries) {
-        std::println("{}", toString(*logEntry));
+        std::println("{}", toString(logEntry));
     }
 }
 

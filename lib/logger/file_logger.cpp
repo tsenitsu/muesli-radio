@@ -22,7 +22,7 @@ FileLogger::FileLogger(std::filesystem::path filePath, const std::uintmax_t maxF
     }
 }
 
-auto FileLogger::log(const std::vector<std::unique_ptr<LogEntry>>& entries) -> void {
+auto FileLogger::log(std::span<const LogEntry> entries) -> void {
     std::error_code ec {};
     const auto size { std::filesystem::file_size(m_filePath, ec) };
 
@@ -39,7 +39,7 @@ auto FileLogger::log(const std::vector<std::unique_ptr<LogEntry>>& entries) -> v
     }
 
     for (auto& entry : entries) {
-        m_file << toString(*entry) << '\n';
+        m_file << toString(entry) << '\n';
     }
 
     if (not entries.empty())

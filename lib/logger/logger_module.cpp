@@ -11,7 +11,7 @@ export class Logger {
 public:
     virtual ~Logger() = default;
 
-    virtual auto log(const std::vector<std::unique_ptr<LogEntry>>& entries) -> void = 0;
+    virtual auto log(std::span<const LogEntry> entries) -> void = 0;
 };
 
 }

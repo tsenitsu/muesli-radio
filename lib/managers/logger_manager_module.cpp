@@ -15,7 +15,7 @@ public:
     explicit LoggerManager(ats::AsyncTaskScheduler& scheduler);
     ~LoggerManager() override;
 
-    auto enqueueLogEntry(std::optional<std::unique_ptr<logger::LogEntry>> entry) -> void;
+    auto enqueueLogEntry(std::optional<logger::LogEntry> entry) -> void;
     auto flushLogs() -> void;
 
     [[nodiscard]] auto isLoggingEnabled() const -> bool;
@@ -23,7 +23,7 @@ public:
 private:
     std::unique_ptr<logger::Logger> m_logger;
     std::mutex m_logEntriesMutex;
-    std::vector<std::unique_ptr<logger::LogEntry>> m_logEntries;
+    std::vector<logger::LogEntry> m_logEntries;
     std::atomic_bool m_loggingEnabled;
 };
 

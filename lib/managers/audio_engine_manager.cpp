@@ -9,7 +9,7 @@ AudioEngineManager::AudioEngineManager(ats::AsyncTaskScheduler& scheduler, Logge
   : TaskManager { scheduler },
     m_taskMutex {},
     m_loggerManager { loggerManager },
-    m_logCallback { [this] (std::optional<std::unique_ptr<logger::LogEntry>> entry) { m_loggerManager.enqueueLogEntry(std::move(entry)); } },
+    m_logCallback { [this] (std::optional<logger::LogEntry> entry) { m_loggerManager.enqueueLogEntry(std::move(entry)); } },
     m_audioEngine { nullptr },
     m_writeTaskDependency { std::nullopt } {
     if (auto audioEngineResult { ae::makeAudioEngine<ae::audio_library_wrapper::MiniaudioLibraryWrapper>(m_logCallback) }; not audioEngineResult.has_value()) {

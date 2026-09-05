@@ -17,6 +17,6 @@ public:
 };
 
 export [[nodiscard]] auto toString(const LogEntry& logEntry) -> std::string;
-export [[nodiscard]] auto makeLogEntry(LogLevel level, std::string_view entity, std::string_view message, std::chrono::time_point<std::chrono::system_clock> timestamp = std::chrono::system_clock::now()) -> std::optional<std::unique_ptr<LogEntry>>;
+export [[nodiscard]] auto makeLogEntry(LogLevel level, std::string_view entity, std::string_view message, std::chrono::time_point<std::chrono::system_clock> timestamp = std::chrono::system_clock::now()) -> std::optional<LogEntry>;
 
 }

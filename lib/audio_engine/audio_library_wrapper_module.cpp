@@ -10,7 +10,7 @@ import logger;
 namespace audio_engine::audio_library_wrapper {
 
 export using AudioCallback = std::function<void(audio_buffer::AudioBuffer<float>& inputBuffer, audio_buffer::AudioBuffer<float>& outputBuffer)>;
-export using LogCallback = std::function<void(std::optional<std::unique_ptr<logger::LogEntry>>)>;
+export using LogCallback = std::function<void(std::optional<logger::LogEntry>)>;
 
 export class AudioLibraryWrapper {
 public:
