@@ -62,6 +62,9 @@ auto LoggerManager::flushLogs() -> void {
         logEntriesToFlush.swap(m_logEntries);
     }
 
+    if (logEntriesToFlush.empty())
+        return;
+
     std::ranges::sort(logEntriesToFlush, [] (const auto& first, const auto& second) { return first.m_timestamp < second.m_timestamp; });
     m_logger->log(logEntriesToFlush);
 }

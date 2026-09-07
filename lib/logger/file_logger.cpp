@@ -42,8 +42,11 @@ auto FileLogger::log(std::span<const LogEntry> entries) -> void {
         m_file << toString(entry) << '\n';
     }
 
-    if (not entries.empty())
-        m_file.flush();
+    m_file.flush();
+
+    if (not m_file.good()) {
+        throw std::runtime_error(std::format("Failed to write to log file {}", m_filePath.generic_string()));
+    }
 }
 
 auto FileLogger::openFile() -> bool {
