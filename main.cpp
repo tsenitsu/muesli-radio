@@ -16,7 +16,9 @@ using namespace ui;
 auto main() -> int {
     std::expected<managers::AudioEngineManager*, std::string> result { nullptr };
 
+    std::unique_ptr<managers::LoggerManager> loggerManager { nullptr };
     std::unique_ptr<AsyncTaskScheduler> asyncTaskScheduler { nullptr };
+    std::unique_ptr<managers::AudioEngineManager> audioEngineManager { nullptr };
 
     if (auto asyncTaskSchedulerResult { makeAsyncTaskScheduler(4) }; not asyncTaskSchedulerResult.has_value()) {
         result = std::unexpected { asyncTaskSchedulerResult.error() };
@@ -24,20 +26,25 @@ auto main() -> int {
         asyncTaskScheduler.swap(asyncTaskSchedulerResult.value());
     }
 
-    auto loggerManager { managers::makeLoggerManager(*asyncTaskScheduler) };
-
-    std::unique_ptr<managers::AudioEngineManager> audioEngineManager { nullptr };
 
     if (result.has_value()) {
-        auto audioEngineManagerResult { managers::makeAudioEngineManager(
-            *asyncTaskScheduler, *loggerManager
-        ) };
-
-        if (not audioEngineManagerResult.has_value()) {
-            result = std::unexpected { std::move(audioEngineManagerResult.error()) };
+        if (auto loggerManagerResult  { managers::makeLoggerManager(*asyncTaskScheduler) }; not loggerManagerResult.has_value()) {
+            result = std::unexpected { std::move(loggerManagerResult.error()) };
         } else {
-            audioEngineManager = std::move(audioEngineManagerResult.value());
-            result = audioEngineManager.get();
+            loggerManager.swap(loggerManagerResult.value());
+        }
+
+        if (result.has_value()) {
+            auto audioEngineManagerResult { managers::makeAudioEngineManager(
+                *asyncTaskScheduler, *loggerManager
+            ) };
+
+            if (not audioEngineManagerResult.has_value()) {
+                result = std::unexpected { std::move(audioEngineManagerResult.error()) };
+            } else {
+                audioEngineManager = std::move(audioEngineManagerResult.value());
+                result = audioEngineManager.get();
+            }
         }
     }
 

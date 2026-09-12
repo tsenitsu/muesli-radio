@@ -27,16 +27,26 @@ ats::ResumableTask<void> writeLog(std::chrono::milliseconds triggerInterval, Log
 
 LoggerManager::LoggerManager(ats::AsyncTaskScheduler &scheduler)
  :  TaskManager { scheduler },
-#ifndef NDEBUG
-    m_logger { std::make_unique<logger::ConsoleLogger>() },
-#else
-    m_logger { std::make_unique<logger::FileLogger>(std::filesystem::current_path() /
-        std::filesystem::path { "log" } /
-        std::filesystem::path { "muesli_radio.log" }, 5'000'000 /* in bytes */) },
-#endif
+    m_logger { nullptr },
     m_logEntriesMutex {},
     m_logEntries {},
     m_loggingEnabled { true } {
+#ifndef NDEBUG
+    m_logger = logger::makeConsoleLogger();
+#else
+    constexpr std::uintmax_t logFileSize { 5'000'000 /* in bytes */ };
+
+    std::filesystem::path logFilePath { std::filesystem::current_path() /
+        std::filesystem::path { "log" } /
+        std::filesystem::path { "muesli_radio.log" } };
+
+    if (auto loggerResult { logger::makeFileLogger(std::move(logFilePath), logFileSize) }; not loggerResult.has_value()) {
+        throw std::runtime_error { std::string { std::format("Error creating file logger: {}", loggerResult.error()) } };
+    } else {
+        m_logger.swap(loggerResult.value());
+    }
+#endif
+
     std::unique_ptr<ats::AsyncTask> writeTask { ats::makeResumableTask<void>(writeLog(std::chrono::milliseconds { 500 }, *this)) };
     enqueueTasks(std::move(writeTask));
 }
@@ -73,8 +83,12 @@ auto LoggerManager::isLoggingEnabled() const -> bool {
     return m_loggingEnabled.load(std::memory_order_acquire);
 }
 
-auto makeLoggerManager(ats::AsyncTaskScheduler& scheduler) -> std::unique_ptr<LoggerManager> {
-    return std::make_unique<LoggerManager>(scheduler);
+auto makeLoggerManager(ats::AsyncTaskScheduler& scheduler) -> std::expected<std::unique_ptr<LoggerManager>, std::string> {
+    try {
+        return std::make_unique<LoggerManager>(scheduler);
+    } catch (const std::exception& e) {
+        return std::unexpected { std::string { e.what() } };
+    }
 }
 
 }

@@ -13,7 +13,7 @@ AudioEngineManager::AudioEngineManager(ats::AsyncTaskScheduler& scheduler, Logge
     m_audioEngine { nullptr },
     m_writeTaskDependency { std::nullopt } {
     if (auto audioEngineResult { ae::makeAudioEngine<ae::audio_library_wrapper::MiniaudioLibraryWrapper>(m_logCallback) }; not audioEngineResult.has_value()) {
-        throw std::runtime_error { std::string { std::format("Error creating audio engine: {}",  audioEngineResult.error()) } };
+        throw std::runtime_error { std::string { std::format("Error creating audio engine: {}", audioEngineResult.error()) } };
     } else {
         m_audioEngine.swap(audioEngineResult.value());
     }

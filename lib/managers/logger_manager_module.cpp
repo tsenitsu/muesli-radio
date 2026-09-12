@@ -27,6 +27,6 @@ private:
     std::atomic_bool m_loggingEnabled;
 };
 
-export [[nodiscard]] auto makeLoggerManager(ats::AsyncTaskScheduler& scheduler) -> std::unique_ptr<LoggerManager>;
+export [[nodiscard]] auto makeLoggerManager(ats::AsyncTaskScheduler& scheduler) -> std::expected<std::unique_ptr<LoggerManager>, std::string>;
 
 }
