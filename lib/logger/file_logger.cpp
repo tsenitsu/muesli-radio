@@ -19,7 +19,7 @@ FileLogger::FileLogger(std::filesystem::path filePath, const std::uintmax_t maxF
     }
 
     if (m_filePath.has_parent_path()) {
-        std::error_code ec;
+        std::error_code ec {};
         std::filesystem::create_directories(m_filePath.parent_path(), ec);
         if (ec) {
             throw std::runtime_error(std::format("Failed to create directory for file {}", m_filePath.generic_string()));
