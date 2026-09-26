@@ -29,3 +29,17 @@ TEST(AudioDriverTests, toString) {
 
     EXPECT_EQ(audio_driver::toString(static_cast<audio_driver::AudioDriver>(55)), std::unexpected { "Audio driver unknown" });
 }
+
+TEST(AudioDriverTests, isLoopbackSupported) {
+#ifdef _WIN32
+    EXPECT_TRUE(audio_driver::isLoopbackSupported(audio_driver::AudioDriver::Wasapi));
+#endif
+#ifdef __APPLE__
+    EXPECT_FALSE(audio_driver::isLoopbackSupported(audio_driver::AudioDriver::CoreAudio));
+#endif
+#ifdef __linux__
+    EXPECT_FALSE(audio_driver::isLoopbackSupported(audio_driver::AudioDriver::PulseAudio));
+    EXPECT_FALSE(audio_driver::isLoopbackSupported(audio_driver::AudioDriver::Jack));
+    EXPECT_FALSE(audio_driver::isLoopbackSupported(audio_driver::AudioDriver::Alsa));
+#endif
+}

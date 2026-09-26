@@ -29,6 +29,7 @@ public:
     auto configureSampleFormatDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) -> void;
     auto configureRecordingToggle(std::function<bool(bool)> onToggle) -> void;
     auto configureMeters(unsigned int inputs, unsigned int outputs, std::function<std::span<const float>()> onTimerCallbackInput, std::function<std::span<const float>()> onTimerCallbackOutput) -> void;
+    auto configureLoopbackToggle(std::function<bool(bool)> onToggle) -> void;
 
     auto resetAudioDevicesControls() -> void;
 
@@ -56,6 +57,8 @@ private:
     DropdownButton m_inputDeviceDropdown;
     Label m_outputDeviceLabel;
     DropdownButton m_outputDeviceDropdown;
+    ToggleButton m_loopbackToggle;
+    Label m_loopbackLabel;
     Label m_bufferLengthLabel;
     DropdownButton m_bufferLengthDropdown;
     Button m_openDeviceButton;
@@ -126,6 +129,10 @@ auto MainWindow::configureMeters(const unsigned int inputs, const unsigned int o
     m_mainWindowImplementation->configureMeters(inputs, outputs, std::move(onTimerCallbackInput), std::move(onTimerCallbackOutput));
 }
 
+auto MainWindow::configureLoopbackToggle(std::function<bool(bool)> onToggle) const -> void {
+    m_mainWindowImplementation->configureLoopbackToggle(std::move(onToggle));
+}
+
 auto MainWindow::resetAudioDevicesControls() const -> void {
     m_mainWindowImplementation->resetAudioDevicesControls();
 }
@@ -172,6 +179,8 @@ MainWindow::MainWindowImplementation::MainWindowImplementation()
     m_inputDeviceDropdown { "Select..." },
     m_outputDeviceLabel { "Output device:" },
     m_outputDeviceDropdown { "Select..." },
+    m_loopbackToggle { "", "\xE2\x9C\x93" },
+    m_loopbackLabel { "Loopback" },
     m_bufferLengthLabel { "Buffer length:" },
     m_bufferLengthDropdown { "Select..." },
     m_openDeviceButton { "Open device(s)" },
@@ -204,6 +213,8 @@ MainWindow::MainWindowImplementation::MainWindowImplementation()
 
     m_applicationWindow.addChild(m_outputDeviceLabel);
     m_applicationWindow.addChild(m_outputDeviceDropdown);
+    m_applicationWindow.addChild(m_loopbackToggle);
+    m_applicationWindow.addChild(m_loopbackLabel);
 
     m_applicationWindow.addChild(m_bufferLengthLabel);
     m_applicationWindow.addChild(m_bufferLengthDropdown);
@@ -283,6 +294,10 @@ auto MainWindow::MainWindowImplementation::configureMeters(const unsigned int in
     m_applicationWindow.addChild(m_outputMeter.get());
 
     resize();
+}
+
+auto MainWindow::MainWindowImplementation::configureLoopbackToggle(std::function<bool(bool)> onToggle) -> void {
+    m_loopbackToggle.onToggle(std::move(onToggle));
 }
 
 auto MainWindow::MainWindowImplementation::resetAudioDevicesControls() -> void {
@@ -368,6 +383,8 @@ auto MainWindow::MainWindowImplementation::enableControls(const bool enabled, co
     else
         m_recordingButton.enabled(enabled);
 
+    m_loopbackToggle.enabled(enabled);
+
     auto enableTextEditor { [enabled] (visage::TextEditor* const editor) {
         editor->setActive(enabled);
 
@@ -417,7 +434,7 @@ auto MainWindow::MainWindowImplementation::postToast(std::string_view message) -
 
     const visage::Font messageFont(toastH * 0.45f, fonts::jetbrainsMonoRegular, m_applicationWindow.dpiScale());
     const visage::String visMessage(message.data());
-    float textWidth = messageFont.stringWidth(visMessage.c_str(), static_cast<int>(visMessage.length()));
+    const float textWidth = messageFont.stringWidth(visMessage.c_str(), static_cast<int>(visMessage.length()));
 
     const float calculatedW = std::clamp(iconSpace + textWidth + rightPadding, 150.f, 1800.f);
 
@@ -482,6 +499,21 @@ auto MainWindow::MainWindowImplementation::resize() -> void {
     setColumn(0.0f, smallSlotW, &m_driverLabel, &m_driverDropdown);
     setColumn(smallSlotW, largeSlotW, &m_inputDeviceLabel, &m_inputDeviceDropdown);
     setColumn(slotW * 2.0f, largeSlotW, &m_outputDeviceLabel, &m_outputDeviceDropdown);
+
+    // Small checkbox + label, sharing the "Output device:" row and right-aligned
+    // to the same edge as the output device dropdown below it.
+    constexpr float smallCheckboxSize { 22.0f };
+    constexpr float checkboxLabelGap { 6.0f };
+    constexpr float loopbackLabelW { 75.0f };
+
+    const float outputColumnRightEdge { (slotW * 2.0f) + largeSlotW - padding };
+    const float smallLabelX { outputColumnRightEdge - loopbackLabelW };
+    const float smallCheckboxX { smallLabelX - checkboxLabelGap - smallCheckboxSize };
+    constexpr float smallCheckboxY { settingsY + ((labelH - smallCheckboxSize) * 0.5f) };
+
+    m_loopbackToggle.setBounds(smallCheckboxX, smallCheckboxY, smallCheckboxSize, smallCheckboxSize);
+    m_loopbackLabel.setBounds(smallLabelX, settingsY, loopbackLabelW, labelH);
+
     setColumn(slotW * 2.0f + largeSlotW, smallSlotW, &m_bufferLengthLabel, &m_bufferLengthDropdown);
     setColumn(slotW * 4.0f, slotW, nullptr, &m_openDeviceButton);
 

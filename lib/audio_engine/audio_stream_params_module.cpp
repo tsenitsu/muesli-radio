@@ -74,14 +74,33 @@ public:
             audio_device::ChannelCount_t numberOfOutputChannels);
 };
 
+export class LoopbackAudioStreamParams final: public AudioStreamParams {
+public:
+    LoopbackAudioStreamParams(audio_device::SampleRate_t sampleRate,
+            audio_format::AudioFormat format,
+            BufferLength_t bufferLength,
+            PeriodSize_t periodSize,
+            const audio_device::DeviceId& loopbackDeviceId,
+            audio_device::ChannelCount_t numberOfLoopbackChannels);
+
+    audio_device::DeviceId m_loopbackDeviceId;
+    audio_device::ChannelCount_t m_numberOfLoopbackChannels;
+};
+
+export struct DeviceSelection {
+    DeviceSelection(audio_device::DeviceId deviceId, audio_device::ChannelCount_t channelCount);
+    audio_device::DeviceId m_deviceId;
+    audio_device::ChannelCount_t m_channelCount;
+};
+
 export [[nodiscard]] auto makeAudioStreamParams(audio_device::SampleRate_t sampleRate,
                 audio_format::AudioFormat format,
                 BufferLength_t bufferLength,
                 PeriodSize_t periodSize,
-                const std::optional<audio_device::DeviceId>& inputDeviceId = std::nullopt,
-                const std::optional<audio_device::ChannelCount_t>& numberOfInputChannels = std::nullopt,
-                const std::optional<audio_device::DeviceId>& outputDeviceId = std::nullopt,
-                const std::optional<audio_device::ChannelCount_t>& numberOfOutputChannels = std::nullopt) noexcept -> std::expected<std::unique_ptr<AudioStreamParams>, std::string>;
+                const std::optional<DeviceSelection>& input = std::nullopt,
+                const std::optional<DeviceSelection>& output = std::nullopt,
+                const std::optional<DeviceSelection>& loopback = std::nullopt) -> std::expected<std::unique_ptr<AudioStreamParams>, std::string>;
 
 export [[nodiscard]] auto toString(const AudioStreamParams& audioStreamParams) -> std::string;
+
 }

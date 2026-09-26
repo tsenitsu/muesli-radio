@@ -102,7 +102,7 @@ auto MiniaudioLibraryWrapper::probeDevices() -> std::expected<std::vector<std::u
                 return std::unexpected { std::string { std::format("Unknown format for input device {}", inputDevices[i].name) } };
             }
 
-            formats.emplace_back(audio_device::NativeDataFormat { flags, formatResult.value(), minChannels, maxChannels, minSampleRate, maxSampleRate });
+            formats.emplace_back(flags, formatResult.value(), minChannels, maxChannels, minSampleRate, maxSampleRate);
         }
 
         if (formats.empty()) {
@@ -126,6 +126,7 @@ auto MiniaudioLibraryWrapper::audioDriver() const -> std::expected<audio_driver:
 auto MiniaudioLibraryWrapper::openStream(const audio_stream_params::AudioStreamParams& audioStreamParams, const AudioCallback& audioCallback) -> bool {
     ma_device_id inputDeviceId {};
     ma_device_id outputDeviceId {};
+    ma_device_id loopbackDeviceId {};
 
     ma_device_config deviceConfig {};
     // At this point we do not know the device type: it does not matter because
@@ -169,6 +170,20 @@ auto MiniaudioLibraryWrapper::openStream(const audio_stream_params::AudioStreamP
         deviceConfig.playback.channels  = outputParams.m_numberOfOutputChannels;
         deviceConfig.playback.shareMode = ma_share_mode_shared;
         deviceConfig.deviceType         = deviceConfig.deviceType == ma_device_type_capture ? ma_device_type_duplex : ma_device_type_playback;
+    } catch ([[maybe_unused]] const std::bad_cast& e) {}
+
+    try {
+        const auto& loopbackParams { dynamic_cast<const audio_stream_params::LoopbackAudioStreamParams&>(audioStreamParams) };
+
+        m_inputAudioBuffer = audio_buffer::makeAudioBuffer<float>(loopbackParams.m_numberOfLoopbackChannels, loopbackParams.m_bufferLength);
+
+        loopbackDeviceId = loopbackParams.m_loopbackDeviceId.id();
+        deviceConfig.capture.pDeviceID = &loopbackDeviceId;
+
+        deviceConfig.capture.format    = audio_format::toMaFormat(loopbackParams.m_format).value();
+        deviceConfig.capture.channels  = loopbackParams.m_numberOfLoopbackChannels;
+        deviceConfig.capture.shareMode = ma_share_mode_shared;
+        deviceConfig.deviceType        = ma_device_type_loopback;
     } catch ([[maybe_unused]] const std::bad_cast& e) {}
 
     if (const auto deviceInitResult { ma_device_init(&m_context, &deviceConfig, &m_device) }; deviceInitResult != MA_SUCCESS) {
@@ -219,7 +234,12 @@ auto MiniaudioLibraryWrapper::miniaudioAudioCallback(ma_device* device, void* ou
 
     miniaudio->m_inputAudioBuffer->copyFromRawBuffer(static_cast<const float*>(inputBuffer), device->capture.channels, frameCount);
     miniaudio->m_outputAudioBuffer->clear();
-    miniaudio->m_audioCallback(*miniaudio->m_inputAudioBuffer, *miniaudio->m_outputAudioBuffer);
+
+    if (device->type == ma_device_type_loopback)
+        miniaudio->m_audioCallback(*miniaudio->m_outputAudioBuffer, *miniaudio->m_inputAudioBuffer);
+    else
+        miniaudio->m_audioCallback(*miniaudio->m_inputAudioBuffer, *miniaudio->m_outputAudioBuffer);
+
     miniaudio->m_outputAudioBuffer->writeToRawBuffer(static_cast<float*>(outputBuffer), device->playback.channels, frameCount);
 }
 

@@ -115,12 +115,14 @@ auto AudioEngineManager::outputAudioDeviceSummaryList() -> ats::Result<std::expe
 }
 
 auto AudioEngineManager::startStream(std::optional<std::string> inputDeviceName,
-                                     std::optional<std::string> outputDeviceName, ae::audio_stream_params::BufferLength_t bufferLength) -> ats::Result<std::expected<void, std::string>> {
+                                     std::optional<std::string> outputDeviceName,
+                                     std::optional<std::string> loopbackDeviceName,
+                                     ae::audio_stream_params::BufferLength_t bufferLength) -> ats::Result<std::expected<void, std::string>> {
     stopRecording();
 
-    auto task { ats::makeAtomicTask([this, inputDeviceName = std::move(inputDeviceName), outputDeviceName = std::move(outputDeviceName), bufferLength] () mutable {
+    auto task { ats::makeAtomicTask([this, inputDeviceName = std::move(inputDeviceName), outputDeviceName = std::move(outputDeviceName), loopbackDeviceName = std::move(loopbackDeviceName), bufferLength] () mutable {
         std::lock_guard lock { m_taskMutex };
-        return m_audioEngine->startStream(std::move(inputDeviceName), std::move(outputDeviceName), bufferLength);
+        return m_audioEngine->startStream(std::move(inputDeviceName), std::move(outputDeviceName), std::move(loopbackDeviceName), bufferLength);
     }) };
 
     auto result { task->result() };

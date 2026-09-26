@@ -87,40 +87,58 @@ public:
     }
 
     [[nodiscard]] auto startStream(std::optional<std::string> inputDeviceName,
-                                   std::optional<std::string> outputDeviceName, audio_stream_params::BufferLength_t bufferLength) -> std::expected<void, std::string> {
+                                   std::optional<std::string> outputDeviceName,
+                                   std::optional<std::string> loopbackDeviceName,
+                                   audio_stream_params::BufferLength_t bufferLength) -> std::expected<void, std::string> {
         if (not isBufferLengthAllowed(bufferLength)) {
             return std::unexpected { std::format("Buffer length {} is not allowed", bufferLength) };
         }
 
-        std::optional<audio_device::DeviceId> inputDeviceId { std::nullopt };
-        std::optional<audio_device::ChannelCount_t> inputChannelCount { std::nullopt };
+        std::optional<audio_stream_params::DeviceSelection> input { std::nullopt };
 
         if (inputDeviceName.has_value()) {
             if (const auto deviceItrResult { getAudioDevice(inputDeviceName.value(), audio_device::AudioDeviceType::Input) }; deviceItrResult.has_value()) {
-                inputDeviceId = deviceItrResult.value()->get()->m_deviceId;
-                inputChannelCount = deviceItrResult.value()->get()->m_nativeDataFormats[0].m_maxChannels;
+                input.emplace(deviceItrResult.value()->get()->m_deviceId,
+                              deviceItrResult.value()->get()->m_nativeDataFormats[0].m_maxChannels);
             } else {
                 return std::unexpected { std::format("Could not find input device {}: {}", inputDeviceName.value(), deviceItrResult.error()) };
             }
         }
 
-        std::optional<audio_device::DeviceId> outputDeviceId { std::nullopt };
-        std::optional<audio_device::ChannelCount_t> outputChannelCount { std::nullopt };
+        std::optional<audio_stream_params::DeviceSelection> output { std::nullopt };
 
         if (outputDeviceName.has_value()) {
             if (const auto deviceItrResult { getAudioDevice(outputDeviceName.value(), audio_device::AudioDeviceType::Output) }; deviceItrResult.has_value()) {
-                outputDeviceId = deviceItrResult.value()->get()->m_deviceId;
-                outputChannelCount = deviceItrResult.value()->get()->m_nativeDataFormats[0].m_maxChannels;
+                output.emplace(deviceItrResult.value()->get()->m_deviceId,
+                               deviceItrResult.value()->get()->m_nativeDataFormats[0].m_maxChannels);
             } else {
                 return std::unexpected { std::format("Could not find output device {}: {}", outputDeviceName.value(), deviceItrResult.error()) };
             }
         }
 
-        auto streamParamsResult { audio_stream_params::makeAudioStreamParams(m_sampleRate, m_format, bufferLength, m_periodSize, inputDeviceId, inputChannelCount, outputDeviceId, outputChannelCount) };
+        std::optional<audio_stream_params::DeviceSelection> loopback { std::nullopt };
+
+        if (loopbackDeviceName.has_value()) {
+            if (const auto deviceItrResult { getAudioDevice(loopbackDeviceName.value(), audio_device::AudioDeviceType::Output) }; deviceItrResult.has_value()) {
+                loopback.emplace(deviceItrResult.value()->get()->m_deviceId,
+                               deviceItrResult.value()->get()->m_nativeDataFormats[0].m_maxChannels);
+            } else {
+                return std::unexpected { std::format("Could not find loopback device {}: {}", loopbackDeviceName.value(), deviceItrResult.error()) };
+            }
+        }
+
+        auto streamParamsResult { audio_stream_params::makeAudioStreamParams(m_sampleRate, m_format, bufferLength, m_periodSize, input, output, loopback) };
 
         if (not streamParamsResult.has_value()) {
             return std::unexpected { std::format("Error creating stream params: {}", streamParamsResult.error()) };
         }
+
+        const auto inputChannelCount { input.transform([] (const auto& selection) { return selection.m_channelCount; }) };
+        const auto outputChannelCount { [&] () -> std::optional<audio_device::ChannelCount_t> {
+            if (output.has_value()) return output->m_channelCount;
+            if (loopback.has_value()) return loopback->m_channelCount;
+            return std::nullopt;
+        } () };
 
         std::unique_ptr<audio_buffer::AudioBuffer<float>> processedInputBuffer { nullptr };
 
@@ -247,6 +265,31 @@ public:
             if (not isDefaultRouting) {
                 if (auto outputAudioRecorder { audio_recorder::makeAudioRecorder(m_audioStreamParams->m_sampleRate, format, fileNames, routingList) }; not outputAudioRecorder.has_value()) {
                     return std::unexpected { std::format("Could not create output audio recorder: {}", outputAudioRecorder.error()) };
+                } else {
+                    m_outputRecorder.swap(outputAudioRecorder.value());
+                }
+            }
+        } catch ([[maybe_unused]] const std::bad_cast&) {}
+
+        try {
+            const auto& loopbackParams { dynamic_cast<const audio_stream_params::LoopbackAudioStreamParams&>(*m_audioStreamParams) };
+
+            std::vector<std::string> fileNames {};
+            std::vector<audio_mixer::ChannelRouting> routingList {};
+
+            for (audio_device::ChannelCount_t channel { 0 }; channel < loopbackParams.m_numberOfLoopbackChannels / 2; ++channel) {
+                fileNames.emplace_back(m_audioMixer->outputName(channel));
+                routingList.push_back(m_audioMixer->outputRouting(channel));
+            }
+
+            if (not m_outputRingAudioBuffer) {
+                return std::unexpected { "Output ring audio buffer is null" };
+            }
+
+            const auto isDefaultRouting { std::ranges::all_of(routingList, [] (const auto& routing) { return not routing.isMono() and not routing.isStereo(); }) };
+            if (not isDefaultRouting) {
+                if (auto outputAudioRecorder { audio_recorder::makeAudioRecorder(m_audioStreamParams->m_sampleRate, format, fileNames, routingList) }; not outputAudioRecorder.has_value()) {
+                    return std::unexpected { std::format("Could not create loopback audio recorder: {}", outputAudioRecorder.error()) };
                 } else {
                     m_outputRecorder.swap(outputAudioRecorder.value());
                 }

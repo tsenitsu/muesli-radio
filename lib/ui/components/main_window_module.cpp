@@ -21,6 +21,7 @@ public:
     auto configureSampleFormatDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) const -> void;
     auto configureRecordingToggle(std::function<bool(bool)> onToggle) const -> void;
     auto configureMeters(unsigned int inputs, unsigned int outputs, std::function<std::span<const float>()> onTimerCallbackInput, std::function<std::span<const float>()> onTimerCallbackOutput) const -> void;
+    auto configureLoopbackToggle(std::function<bool(bool)> onToggle) const -> void;
 
     auto resetAudioDevicesControls() const -> void;
 

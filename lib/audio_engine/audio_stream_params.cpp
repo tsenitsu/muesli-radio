@@ -59,15 +59,30 @@ DuplexAudioStreamParams::DuplexAudioStreamParams(const audio_device::SampleRate_
     OutputAudioStreamParams { outputDeviceId, numberOfOutputChannels }
 {}
 
+DeviceSelection::DeviceSelection(audio_device::DeviceId deviceId,
+                                 const audio_device::ChannelCount_t channelCount)
+ :  m_deviceId { std::move(deviceId) },
+    m_channelCount { channelCount }
+{}
+
+LoopbackAudioStreamParams::LoopbackAudioStreamParams(const audio_device::SampleRate_t sampleRate,
+                    const audio_format::AudioFormat format,
+                    const BufferLength_t bufferLength,
+                    const PeriodSize_t periodSize,
+                    const audio_device::DeviceId& loopbackDeviceId,
+                    const audio_device::ChannelCount_t numberOfLoopbackChannels)
+ :  AudioStreamParams { sampleRate, format, bufferLength, periodSize },
+    m_loopbackDeviceId { loopbackDeviceId },
+    m_numberOfLoopbackChannels { numberOfLoopbackChannels }
+{}
 
 auto makeAudioStreamParams(const audio_device::SampleRate_t sampleRate,
                     const audio_format::AudioFormat format,
                     const BufferLength_t bufferLength,
                     const PeriodSize_t periodSize,
-                    const std::optional<audio_device::DeviceId>& inputDeviceId,
-                    const std::optional<audio_device::ChannelCount_t>& numberOfInputChannels,
-                    const std::optional<audio_device::DeviceId>& outputDeviceId,
-                    const std::optional<audio_device::ChannelCount_t>& numberOfOutputChannels) noexcept -> std::expected<std::unique_ptr<AudioStreamParams>, std::string> {
+                    const std::optional<DeviceSelection>& input,
+                    const std::optional<DeviceSelection>& output,
+                    const std::optional<DeviceSelection>& loopback) -> std::expected<std::unique_ptr<AudioStreamParams>, std::string> {
 
     if (sampleRate < 44100)
         return std::unexpected { std::string { "Invalid sample rate" } };
@@ -81,41 +96,37 @@ auto makeAudioStreamParams(const audio_device::SampleRate_t sampleRate,
     if (periodSize < 3)
         return std::unexpected { std::string { "Invalid period size" } };
 
-    auto inputDeviceProvided { false };
-    auto outputDeviceProvided { false };
+    // Loopback captures a playback device and needs its own ma_device,
+    // so it can't be combined with input or output.
+    if (loopback.has_value()) {
+        if (input.has_value() or output.has_value())
+            return std::unexpected { std::string { "Loopback cannot be combined with input or output" } };
 
-    if (inputDeviceId.has_value()) {
-        if (not numberOfInputChannels.has_value())
-           return std::unexpected { std::string { "Number of input channels not set" } };
+        if (loopback->m_channelCount == 0)
+            return std::unexpected { std::string { "Invalid number of loopback channels" } };
 
-        if (numberOfInputChannels.value() == 0)
-            return std::unexpected { std::string { "Invalid number of input channels" } };
-
-        inputDeviceProvided = true;
+        return std::make_unique<LoopbackAudioStreamParams>(sampleRate, format, bufferLength, periodSize,
+                                                    loopback->m_deviceId, loopback->m_channelCount);
     }
 
-    if (outputDeviceId.has_value()) {
-        if (not numberOfOutputChannels.has_value())
-            return std::unexpected { std::string { "Number of output channels not set" } };
+    if (input.has_value() and input->m_channelCount == 0)
+        return std::unexpected { std::string { "Invalid number of input channels" } };
 
-        if (numberOfOutputChannels.value() == 0)
-            return std::unexpected { std::string { "Invalid number of output channels" } };
+    if (output.has_value() and output->m_channelCount == 0)
+        return std::unexpected { std::string { "Invalid number of output channels" } };
 
-        outputDeviceProvided = true;
-    }
-
-    if (inputDeviceProvided and outputDeviceProvided)
+    if (input.has_value() and output.has_value())
         return std::make_unique<DuplexAudioStreamParams>(sampleRate, format, bufferLength, periodSize,
-                                                    inputDeviceId.value(), numberOfInputChannels.value(),
-                                                    outputDeviceId.value(), numberOfOutputChannels.value());
+                                                    input->m_deviceId, input->m_channelCount,
+                                                    output->m_deviceId, output->m_channelCount);
 
-    if (inputDeviceProvided)
+    if (input.has_value())
         return std::make_unique<InputAudioStreamParams>(sampleRate, format, bufferLength, periodSize,
-                                                inputDeviceId.value(), numberOfInputChannels.value());
+                                                input->m_deviceId, input->m_channelCount);
 
-    if (outputDeviceProvided)
+    if (output.has_value())
         return std::make_unique<OutputAudioStreamParams>(sampleRate, format, bufferLength, periodSize,
-                                                outputDeviceId.value(), numberOfOutputChannels.value());
+                                                output->m_deviceId, output->m_channelCount);
 
     return std::unexpected { std::string { "No devices provided" } };
 }
@@ -135,6 +146,11 @@ auto toString(const AudioStreamParams& audioStreamParams) -> std::string {
     try {
         const auto& outputParams { dynamic_cast<const OutputAudioStreamParams&>(audioStreamParams) };
         params.append(std::format("Number of output channels: {}\n", outputParams.m_numberOfOutputChannels));
+    } catch ([[maybe_unused]] const std::bad_cast&) {}
+
+    try {
+        const auto& loopbackParams { dynamic_cast<const LoopbackAudioStreamParams&>(audioStreamParams) };
+        params.append(std::format("Number of loopback channels: {}\n", loopbackParams.m_numberOfLoopbackChannels));
     } catch ([[maybe_unused]] const std::bad_cast&) {}
 
     return params;

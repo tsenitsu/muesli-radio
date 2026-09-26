@@ -59,4 +59,13 @@ auto toAudioDriver(const ma_device_backend_vtable* backend) -> std::expected<Aud
     return std::unexpected { "Audio backend unknown" };
 }
 
+auto isLoopbackSupported(const AudioDriver driver) -> bool {
+    return toBackend(driver)
+        .and_then([](ma_device_backend_vtable* backend) -> std::expected<bool, std::string> {
+            ma_device_backend_info info;
+            ma_get_device_backend_info(backend, &info);
+            return info.isLoopbackSupported;
+        }).value_or(false);
+}
+
 }

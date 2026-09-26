@@ -26,6 +26,7 @@ private:
     auto setupOpenDevicesButton() -> void;
     auto setupSampleFormatDropdown() -> void;
     auto setupRecordingToggle() const -> void;
+    auto setupLoopbackToggle() -> void;
     auto addInputRows() -> void;
     auto addOutputRows() const -> void;
 
@@ -41,6 +42,7 @@ private:
     std::vector<InputRowState> m_inputRowStates;
     std::vector<std::unique_ptr<audio_engine::audio_mixer::ChannelRouting>> m_inputRoutingList;
     std::vector<std::unique_ptr<audio_engine::audio_mixer::ChannelRouting>> m_outputRoutingList;
+    bool m_loopbackToggleOn;
     std::unique_ptr<ui::components::MainWindow> m_mainWindow;
 };
 

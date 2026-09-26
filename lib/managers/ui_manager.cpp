@@ -46,6 +46,7 @@ UiManager::UiManager(std::expected<AudioEngineManager*, std::string>&& engineMan
       m_inputRowStates {},
       m_inputRoutingList {},
       m_outputRoutingList {},
+      m_loopbackToggleOn { false },
       m_mainWindow { std::make_unique<ui::components::MainWindow>() } {
 
     if (not engineManagerResult.has_value()) {
@@ -81,6 +82,7 @@ UiManager::UiManager(std::expected<AudioEngineManager*, std::string>&& engineMan
     setupOpenDevicesButton();
     setupSampleFormatDropdown();
     setupRecordingToggle();
+    setupLoopbackToggle();
 }
 
 auto UiManager::setupDriverDropdown(std::pair<int, std::string> defaultDriver) -> void {
@@ -113,6 +115,11 @@ auto UiManager::setupDriverDropdown(std::pair<int, std::string> defaultDriver) -
 auto UiManager::setupDeviceDropdowns() -> void {
     m_mainWindow->configureInputDeviceDropdown(
         [this] {
+            if (m_loopbackToggleOn) {
+                m_mainWindow->postToast("Can not select input device when loopback is enabled");
+                return std::vector<ui::components::MenuItem>  {};
+            }
+
             std::vector<ui::components::MenuItem> items;
             if (auto taskResult { m_audioEngineManager->inputAudioDeviceSummaryList().get() };
                 not taskResult.has_value()) {
@@ -195,9 +202,17 @@ auto UiManager::setupOpenDevicesButton() -> void {
         }
 
         std::optional<std::string> outputDeviceName;
+        std::optional<std::string> loopbackDeviceName;
+
         if (m_selectedOutputDeviceIndex.has_value()) {
             const auto& outputSummary { m_outputAudioDeviceSummaryList[m_selectedOutputDeviceIndex.value()] };
-            outputDeviceName = outputSummary.m_deviceName;
+
+            if (not m_loopbackToggleOn) {
+                outputDeviceName = outputSummary.m_deviceName;
+            } else {
+                loopbackDeviceName = outputSummary.m_deviceName;
+            }
+
             localOutputLevels.assign(outputSummary.m_channels, 0.f);
             localOutputRoutingList = audio_engine::audio_mixer::makeStereoRoutingList(
                 static_cast<audio_engine::audio_mixer::Routing_t>(outputSummary.m_channels));
@@ -208,6 +223,7 @@ auto UiManager::setupOpenDevicesButton() -> void {
         auto taskResult { m_audioEngineManager->startStream(
             std::move(inputDeviceName),
             std::move(outputDeviceName),
+            std::move(loopbackDeviceName),
             m_audioEngineManager->allowedBufferLengths()[m_selectedBufferLengthIndex.value()]).get() };
 
         if (not taskResult.has_value()) {
@@ -314,7 +330,7 @@ auto UiManager::setupSampleFormatDropdown() -> void {
 }
 
 auto UiManager::setupRecordingToggle() const -> void {
-    m_mainWindow->configureRecordingToggle([this](const bool toggleOn) {
+    m_mainWindow->configureRecordingToggle([this] (const bool toggleOn) {
         if (not m_selectedSampleFormatIndex.has_value()) {
             m_mainWindow->postToast("Sample format not selected");
             return false;
@@ -335,6 +351,32 @@ auto UiManager::setupRecordingToggle() const -> void {
         m_audioEngineManager->stopRecording();
         m_mainWindow->enableControls(true);
         m_mainWindow->postToast("Recording stopped");
+        return true;
+    });
+}
+
+auto UiManager::setupLoopbackToggle() -> void {
+    m_mainWindow->configureLoopbackToggle([this] (const bool toggleOn)  {
+        if (toggleOn) {
+            if (auto taskResult { m_audioEngineManager->audioDriver().get() }; not taskResult.has_value()) {
+                m_mainWindow->postToast(taskResult.error());
+            } else {
+                if (not audio_engine::audio_driver::isLoopbackSupported(taskResult.value())) {
+                    m_mainWindow->postToast("Loopback is not supported by the current audio driver");
+                    return false;
+                }
+
+                if (m_selectedInputDeviceIndex.has_value()) {
+                    m_mainWindow->postToast("Loopback cannot be enabled while an input device is selected");
+                    return false;
+                }
+            }
+
+            m_loopbackToggleOn = toggleOn;
+            return true;
+        }
+
+        m_loopbackToggleOn = toggleOn;
         return true;
     });
 }

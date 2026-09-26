@@ -31,7 +31,9 @@ public:
     [[nodiscard]] auto outputAudioDeviceSummaryList() -> ats::Result<std::expected<std::vector<ae::audio_device::AudioDeviceSummary>, std::string>>;
 
     [[nodiscard]] auto startStream(std::optional<std::string> inputDeviceName,
-                                   std::optional<std::string> outputDeviceName, ae::audio_stream_params::BufferLength_t bufferLength) -> ats::Result<std::expected<void, std::string>>;
+                                   std::optional<std::string> outputDeviceName,
+                                   std::optional<std::string> loopbackDeviceName,
+                                   ae::audio_stream_params::BufferLength_t bufferLength) -> ats::Result<std::expected<void, std::string>>;
 
     [[nodiscard]] auto startRecording(ae::audio_format::AudioFormat format) -> std::expected<void, std::string>;
                   auto stopRecording() -> void;

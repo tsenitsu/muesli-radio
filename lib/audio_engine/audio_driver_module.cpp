@@ -26,6 +26,7 @@ export enum class AudioDriver {
 export [[nodiscard]] auto toString(AudioDriver driver) -> std::expected<std::string, std::string>;
 export [[nodiscard]] auto toBackend(AudioDriver driver) -> std::expected<ma_device_backend_vtable*, std::string>;
 export [[nodiscard]] auto toAudioDriver(const ma_device_backend_vtable* backend) -> std::expected<AudioDriver, std::string>;
+export [[nodiscard]] auto isLoopbackSupported(AudioDriver driver) -> bool;
 
 export constexpr std::array availableAudioDrivers {
 #ifdef _WIN32
