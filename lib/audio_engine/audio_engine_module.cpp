@@ -454,8 +454,8 @@ protected:
             if (not outputRouting.isMono() and not outputRouting.isStereo()) {
                 // A mixer channel is stereo, so if we don't have a routing for a stereo channel,
                 // we clear channel and next channel
-                outputBuffer.clear(channel);
-                outputBuffer.clear(channel + 1);
+                outputBuffer.clear(channel * 2);
+                outputBuffer.clear((channel * 2) + 1);
                 continue;
             }
 
