@@ -39,7 +39,7 @@ LoggerManager::LoggerManager(ats::AsyncTaskScheduler &scheduler)
 
     std::filesystem::path logFilePath { std::filesystem::current_path() /
         std::filesystem::path { "log" } /
-        std::filesystem::path { "muesli_radio.log" } };
+        std::filesystem::path { "muesli-radio.log" } };
 
     if (auto loggerResult { logger::makeFileLogger(std::move(logFilePath), logFileSize, retentionPeriod) }; not loggerResult.has_value()) {
         throw std::runtime_error { std::string { std::format("Error creating file logger: {}", loggerResult.error()) } };
