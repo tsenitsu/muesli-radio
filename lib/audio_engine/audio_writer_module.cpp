@@ -62,8 +62,13 @@ public:
     }
 
     [[nodiscard]] auto write(const audio_buffer::ReadOnlyAudioBufferView<float>& buffer) -> bool override {
+        const auto isEmpty { buffer.m_leftMono.empty() and buffer.m_right.empty() };
         const auto isMono { not buffer.m_leftMono.empty() and buffer.m_right.empty() };
         const auto isStereo { not buffer.m_leftMono.empty() and not buffer.m_right.empty() };
+
+        if (isEmpty) {
+            return true;
+        }
 
         if (not isMono and not isStereo) {
             return false;

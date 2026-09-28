@@ -41,11 +41,16 @@ public:
 
     template <typename G> requires std::same_as<T, G>
     [[nodiscard]] auto enqueue(const audio_buffer::AudioBuffer<G>& buffer) -> bool {
+        const auto totalFrames { buffer.bufferLength() };
+
+        if (totalFrames == 0) {
+            return true;
+        }
+
         if (not isAudioBufferCompatible(buffer.numberOfChannels())) {
             return false;
         }
 
-        const auto totalFrames { buffer.bufferLength() };
         auto remaining { totalFrames };
         auto offset { audio_stream_params::BufferLength_t { 0 } };  // offset in the source buffer
 
@@ -82,6 +87,11 @@ public:
 
         if (ma_audio_ring_buffer_get_length_in_pcm_frames(&m_rb, &availableFrames) != MA_SUCCESS) {
             return false;
+        }
+
+        if (availableFrames == 0) {
+            buffer.resize(m_channels, audio_stream_params::BufferLength_t { 0 });
+            return true;
         }
 
         // Pre‑size the output buffer
