@@ -1,5 +1,7 @@
 module audio_engine_manager;
 
+import logger;
+
 namespace ae = audio_engine;
 namespace ats = async_task_scheduler;
 
