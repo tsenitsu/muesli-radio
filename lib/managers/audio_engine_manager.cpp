@@ -1,6 +1,7 @@
 module audio_engine_manager;
 
 import logger;
+import utils;
 
 namespace ae = audio_engine;
 namespace ats = async_task_scheduler;
@@ -209,7 +210,7 @@ auto AudioEngineManager::stopRecording() -> void {
 auto AudioEngineManager::inputChannelName(std::string channelName, const ae::audio_device::ChannelCount_t channelCount) -> ats::Result<void> {
     auto inputNameTask { ats::makeAtomicTask([this, name = std::move(channelName), channelCount] () {
         std::lock_guard lock { m_taskMutex };
-        m_audioEngine->audioMixer()->inputName(name, channelCount);
+        m_audioEngine->audioMixer()->inputName(utils::sanitizeFileName(name), channelCount);
     }) };
 
     const auto inputChannelNameResult { inputNameTask->result() };
@@ -233,7 +234,7 @@ auto AudioEngineManager::inputChannelName(const ae::audio_device::ChannelCount_t
 auto AudioEngineManager::outputChannelName(std::string channelName, const ae::audio_device::ChannelCount_t channelCount) -> ats::Result<void> {
     auto outputNameTask { ats::makeAtomicTask([this, name = std::move(channelName), channelCount] () {
         std::lock_guard lock { m_taskMutex };
-        m_audioEngine->audioMixer()->outputName(name, channelCount);
+        m_audioEngine->audioMixer()->outputName(utils::sanitizeFileName(name), channelCount);
     }) };
 
     const auto outputNameResult { outputNameTask->result() };
