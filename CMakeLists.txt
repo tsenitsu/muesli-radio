@@ -67,5 +67,12 @@ add_executable(muesli-radio main.cpp)
 target_custom_compiler_options(muesli-radio)
 target_link_libraries(muesli-radio PRIVATE audio-engine async-task-scheduler managers logger)
 
+if (MSVC)
+    set_target_properties(muesli-radio PROPERTIES
+            WIN32_EXECUTABLE $<NOT:$<CONFIG:Debug>>)
+    target_link_options(muesli-radio PRIVATE
+            $<$<NOT:$<CONFIG:Debug>>:/ENTRY:mainCRTStartup>)
+endif()
+
 enable_testing()
 add_subdirectory(testing)
