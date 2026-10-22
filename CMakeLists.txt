@@ -3,6 +3,10 @@ cmake_minimum_required(VERSION 4.3.1 FATAL_ERROR)
 set(CMAKE_EXPERIMENTAL_CXX_IMPORT_STD "451f2fe2-a8a2-47c3-bc32-94786d8fc91b")
 set(CMAKE_CXX_MODULE_STD 1)
 
+if (MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
+
 project(muesli-radio LANGUAGES CXX)
 
 set(BUILD_SHARED_LIBS OFF)
@@ -10,6 +14,10 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED true)
 if (NOT MSVC AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CMAKE_CXX_EXTENSIONS ON)
+endif()
+
+if (MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
