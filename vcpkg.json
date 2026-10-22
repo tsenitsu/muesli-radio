@@ -1,0 +1,9 @@
+{
+  "name" : "muesli-radio",
+  "version-string" : "1.0.0",
+  "builtin-baseline" : "3cbc1db4d867ec83c89fba4c461321c11f78b5e3",
+  "dependencies" : [ {
+    "name" : "nativefiledialog-extended",
+    "version>=" : "1.4.1"
+  } ]
+}
