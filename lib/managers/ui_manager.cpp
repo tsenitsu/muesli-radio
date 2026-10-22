@@ -1,8 +1,11 @@
 module ui_manager;
 
+import utils;
+
 import dropdown;
 import audio_driver;
 import audio_format;
+import folder_picker;
 
 namespace managers {
 
@@ -34,20 +37,21 @@ auto makeMenuItems(const Range& range, Proj projection) -> std::vector<ui::compo
 }
 
 UiManager::UiManager(std::expected<AudioEngineManager*, std::string>&& engineManagerResult)
-    : m_audioEngineManager { nullptr },
-      m_inputAudioDeviceSummaryList {},
-      m_outputAudioDeviceSummaryList {},
-      m_selectedInputDeviceIndex { std::nullopt },
-      m_selectedOutputDeviceIndex { std::nullopt },
-      m_selectedBufferLengthIndex { std::nullopt },
-      m_selectedSampleFormatIndex { std::nullopt },
-      m_inputLevels {},
-      m_outputLevels {},
-      m_inputRowStates {},
-      m_inputRoutingList {},
-      m_outputRoutingList {},
-      m_loopbackToggleOn { false },
-      m_mainWindow { std::make_unique<ui::components::MainWindow>() } {
+ :  m_audioEngineManager { nullptr },
+    m_inputAudioDeviceSummaryList {},
+    m_outputAudioDeviceSummaryList {},
+    m_selectedInputDeviceIndex { std::nullopt },
+    m_selectedOutputDeviceIndex { std::nullopt },
+    m_selectedBufferLengthIndex { std::nullopt },
+    m_selectedSampleFormatIndex { std::nullopt },
+    m_selectedFolder { std::filesystem::current_path() },
+    m_inputLevels {},
+    m_outputLevels {},
+    m_inputRowStates {},
+    m_inputRoutingList {},
+    m_outputRoutingList {},
+    m_loopbackToggleOn { false },
+    m_mainWindow { std::make_unique<ui::components::MainWindow>() } {
 
     if (not engineManagerResult.has_value()) {
         m_mainWindow->enableControls(false);
@@ -82,6 +86,7 @@ UiManager::UiManager(std::expected<AudioEngineManager*, std::string>&& engineMan
     setupOpenDevicesButton();
     setupSampleFormatDropdown();
     setupRecordingToggle();
+    setupSelectFolderButton();
     setupLoopbackToggle();
 }
 
@@ -338,7 +343,8 @@ auto UiManager::setupRecordingToggle() const -> void {
 
         if (toggleOn) {
             if (auto taskResult { m_audioEngineManager->startRecording(
-                    audio_engine::audio_format::availableRecordingFormats[m_selectedSampleFormatIndex.value()]) };
+                    audio_engine::audio_format::availableRecordingFormats[m_selectedSampleFormatIndex.value()],
+                    m_selectedFolder) };
                 not taskResult.has_value()) {
                 m_mainWindow->postToast(taskResult.error());
                 return false;
@@ -352,6 +358,32 @@ auto UiManager::setupRecordingToggle() const -> void {
         m_mainWindow->enableControls(true);
         m_mainWindow->postToast("Recording stopped");
         return true;
+    });
+}
+
+auto UiManager::setupSelectFolderButton() -> void {
+    m_mainWindow->configureSelectFolderButton([this] {
+        const ui::components::FolderPicker picker {};
+        auto folderResult { picker.pick() };
+
+        if (not folderResult.has_value()) {
+            m_mainWindow->postToast(folderResult.error());
+            return;
+        }
+
+        auto folder { std::move(folderResult).value() };
+
+        if (not folder.has_value()) {
+            return;
+        }
+
+        if (std::error_code ec {}; not std::filesystem::is_directory(m_selectedFolder, ec) or ec) {
+            m_mainWindow->postToast("Output folder does not exist");
+            return;
+        }
+
+        m_mainWindow->updateOutputFolderPath(utils::pathToUtf8(folder.value()));
+        m_selectedFolder = std::move(std::move(folder).value());
     });
 }
 

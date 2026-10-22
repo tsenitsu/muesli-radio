@@ -26,6 +26,7 @@ private:
     auto setupOpenDevicesButton() -> void;
     auto setupSampleFormatDropdown() -> void;
     auto setupRecordingToggle() const -> void;
+    auto setupSelectFolderButton() -> void;
     auto setupLoopbackToggle() -> void;
     auto addInputRows() -> void;
     auto addOutputRows() const -> void;
@@ -37,6 +38,7 @@ private:
     std::optional<unsigned int> m_selectedOutputDeviceIndex;
     std::optional<unsigned int> m_selectedBufferLengthIndex;
     std::optional<unsigned int> m_selectedSampleFormatIndex;
+    std::filesystem::path m_selectedFolder;
     std::vector<float> m_inputLevels;
     std::vector<float> m_outputLevels;
     std::vector<InputRowState> m_inputRowStates;

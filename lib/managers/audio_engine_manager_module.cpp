@@ -35,7 +35,7 @@ public:
                                    std::optional<std::string> loopbackDeviceName,
                                    ae::audio_stream_params::BufferLength_t bufferLength) -> ats::Result<std::expected<void, std::string>>;
 
-    [[nodiscard]] auto startRecording(ae::audio_format::AudioFormat format) -> std::expected<void, std::string>;
+    [[nodiscard]] auto startRecording(ae::audio_format::AudioFormat format, std::filesystem::path path) -> std::expected<void, std::string>;
                   auto stopRecording() -> void;
 
     [[nodiscard]] auto inputChannelName(std::string channelName, ae::audio_device::ChannelCount_t channelCount) -> ats::Result<void>;

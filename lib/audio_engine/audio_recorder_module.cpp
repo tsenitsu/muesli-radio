@@ -12,7 +12,7 @@ namespace audio_engine::audio_recorder {
 
 export class AudioRecorder {
 public:
-    AudioRecorder(audio_device::SampleRate_t sampleRate, audio_format::AudioFormat format,
+    AudioRecorder(audio_device::SampleRate_t sampleRate, audio_format::AudioFormat format, const std::filesystem::path& path,
         const std::vector<std::string>& fileNames, const std::vector<audio_mixer::ChannelRouting>& routingList);
 
     virtual ~AudioRecorder() = default;
@@ -23,11 +23,11 @@ private:
     std::vector<audio_mixer::ChannelRouting> m_routing;
 };
 
-export [[nodiscard]] auto makeAudioRecorder(audio_device::SampleRate_t sampleRate, audio_format::AudioFormat format,
+export [[nodiscard]] auto makeAudioRecorder(audio_device::SampleRate_t sampleRate, audio_format::AudioFormat format, const std::filesystem::path& path,
     const std::vector<std::string>& fileNames, const std::vector<audio_mixer::ChannelRouting>& routingList) -> std::expected<std::unique_ptr<AudioRecorder>, std::string> {
 
     try {
-        return std::make_unique<AudioRecorder>(sampleRate, format, fileNames, routingList);
+        return std::make_unique<AudioRecorder>(sampleRate, format, path, fileNames, routingList);
     } catch (const std::exception& e) {
         return std::unexpected { std::string { e.what()} };
     }

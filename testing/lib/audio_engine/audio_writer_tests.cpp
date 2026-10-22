@@ -13,10 +13,10 @@ TEST(AudioWriter, makeAudioWriter) {
     std::string_view fileName { "test" };
     std::filesystem::remove((std::string { fileName }).append(".wav"));
 
-    auto audioWriterResult { audio_recorder::makeAudioWriter<audio_format::AudioFormat::Float32>("", audio_device::SampleRate_t { 44100 }, audio_device::ChannelCount_t { 2 }) };
+    auto audioWriterResult { audio_recorder::makeAudioWriter<audio_format::AudioFormat::Float32>(std::filesystem::path {}, audio_device::SampleRate_t { 44100 }, audio_device::ChannelCount_t { 2 }) };
 
     ASSERT_FALSE(audioWriterResult.has_value());
-    EXPECT_EQ(audioWriterResult.error(), "File name can not be empty");
+    EXPECT_EQ(audioWriterResult.error(), "File path can not be empty");
 
     audioWriterResult = audio_recorder::makeAudioWriter<audio_format::AudioFormat::Float32>(fileName, audio_device::SampleRate_t { 40000 }, audio_device::ChannelCount_t { 2 }) ;
 

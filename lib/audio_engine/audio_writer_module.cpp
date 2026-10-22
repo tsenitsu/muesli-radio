@@ -39,7 +39,7 @@ public:
 template <audio_format::AudioFormat format>
 class AudioWriterWithFormat: public AudioWriter {
 public:
-    AudioWriterWithFormat(std::string_view fileName, const audio_device::SampleRate_t sampleRate, const audio_device::ChannelCount_t channelCount)
+    AudioWriterWithFormat(const std::filesystem::path& filePath, const audio_device::SampleRate_t sampleRate, const audio_device::ChannelCount_t channelCount)
       : m_encoderConfig {},
         m_encoder {},
         m_interleavedSamples {},
@@ -50,9 +50,10 @@ public:
 
         m_encoderConfig = ma_encoder_config_init(ma_encoding_format_wav, audio_format::toMaFormat(format).value(), channelCount, sampleRate);
 
-        const auto fileNameWithExtension { std::string { fileName }.append(".wav") };
+        auto fileWithExtension { filePath };
+        fileWithExtension += ".wav";
 
-        if (ma_encoder_init_file(fileNameWithExtension.c_str(), &m_encoderConfig, &m_encoder) != MA_SUCCESS) {
+        if (openFile(fileWithExtension) != MA_SUCCESS) {
             throw std::runtime_error("Failed to initialize output file");
         }
     }
@@ -121,6 +122,14 @@ public:
     }
 
 private:
+    auto openFile(const std::filesystem::path& file) -> ma_result {
+#ifdef _WIN32
+        return ma_encoder_init_file_w(file.c_str(), &m_encoderConfig, &m_encoder);
+#else
+        return ma_encoder_init_file(file.c_str(), &m_encoderConfig, &m_encoder);
+#endif
+    }
+
     auto resizeAndClearConvertedSamples(const auto size) -> void {
         m_convertedSamples.resize(size);
         std::ranges::fill(m_convertedSamples, static_cast<decltype(m_convertedSamples)::value_type>(0));
@@ -134,9 +143,9 @@ private:
 };
 
 export template <audio_format::AudioFormat format>
-[[nodiscard]] auto makeAudioWriter(std::string_view fileName, const audio_device::SampleRate_t sampleRate, const audio_device::ChannelCount_t channelCount) -> std::expected<std::unique_ptr<AudioWriter>, std::string> {
-    if (fileName.empty()) {
-        return std::unexpected { "File name can not be empty" };
+[[nodiscard]] auto makeAudioWriter(const std::filesystem::path& path, const audio_device::SampleRate_t sampleRate, const audio_device::ChannelCount_t channelCount) -> std::expected<std::unique_ptr<AudioWriter>, std::string> {
+    if (path.empty()) {
+        return std::unexpected { "File path can not be empty" };
     }
 
     if (sampleRate < 44100) {
@@ -148,7 +157,7 @@ export template <audio_format::AudioFormat format>
     }
 
     try {
-        return std::make_unique<AudioWriterWithFormat<format>>(fileName, sampleRate, channelCount);
+        return std::make_unique<AudioWriterWithFormat<format>>(path, sampleRate, channelCount);
     } catch (const std::exception& ex) {
         return std::unexpected { ex.what() };
     }

@@ -15,6 +15,8 @@ import toast_popup;
 import level_meter;
 import fonts;
 
+import utils;
+
 namespace ui::components {
 
 class MainWindow::MainWindowImplementation final {
@@ -28,6 +30,8 @@ public:
     auto configureOpenDevicesButton(std::function<void()> onClick) -> void;
     auto configureSampleFormatDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) -> void;
     auto configureRecordingToggle(std::function<bool(bool)> onToggle) -> void;
+    auto configureSelectFolderButton(std::function<void()> onClick) -> void;
+    auto updateOutputFolderPath(std::string_view path) -> void;
     auto configureMeters(unsigned int inputs, unsigned int outputs, std::function<std::span<const float>()> onTimerCallbackInput, std::function<std::span<const float>()> onTimerCallbackOutput) -> void;
     auto configureLoopbackToggle(std::function<bool(bool)> onToggle) -> void;
 
@@ -66,6 +70,9 @@ private:
     Label m_recordingLabel;
     DropdownButton m_sampleFormatDropdown;
     ToggleButton m_recordingButton;
+    Label m_outputFolderLabel;
+    Label m_outputFolderPathLabel;
+    Button m_selectFolderButton;
     TitleBar m_inputTitleBar;
     TitleBar m_outputTitleBar;
     TitleBar m_meteringTitleBar;
@@ -133,6 +140,14 @@ auto MainWindow::configureLoopbackToggle(std::function<bool(bool)> onToggle) con
     m_mainWindowImplementation->configureLoopbackToggle(std::move(onToggle));
 }
 
+auto MainWindow::configureSelectFolderButton(std::function<void()> onClick) const -> void {
+    m_mainWindowImplementation->configureSelectFolderButton(std::move(onClick));
+}
+
+auto MainWindow::updateOutputFolderPath(std::string_view path) const -> void {
+    m_mainWindowImplementation->updateOutputFolderPath(path);
+}
+
 auto MainWindow::resetAudioDevicesControls() const -> void {
     m_mainWindowImplementation->resetAudioDevicesControls();
 }
@@ -188,6 +203,9 @@ MainWindow::MainWindowImplementation::MainWindowImplementation()
     m_recordingLabel { "Sample format:" },
     m_sampleFormatDropdown { "Select..." },
     m_recordingButton { "Start recording", "Stop recording" },
+    m_outputFolderLabel { "Output folder:" },
+    m_outputFolderPathLabel { utils::truncateWithEllipsis(utils::pathToUtf8(std::filesystem::current_path()), 57) },
+    m_selectFolderButton { "Select folder" },
     m_inputTitleBar { "Inputs" },
     m_outputTitleBar { "Outputs" },
     m_meteringTitleBar { "Metering" },
@@ -227,6 +245,10 @@ MainWindow::MainWindowImplementation::MainWindowImplementation()
     m_applicationWindow.addChild(m_sampleFormatDropdown);
 
     m_applicationWindow.addChild(m_recordingButton);
+
+    m_applicationWindow.addChild(m_outputFolderLabel);
+    m_applicationWindow.addChild(m_outputFolderPathLabel);
+    m_applicationWindow.addChild(m_selectFolderButton);
 
     m_applicationWindow.addChild(m_inputTitleBar);
     m_applicationWindow.addChild(m_outputTitleBar);
@@ -294,6 +316,14 @@ auto MainWindow::MainWindowImplementation::configureMeters(const unsigned int in
     m_applicationWindow.addChild(m_outputMeter.get());
 
     resize();
+}
+
+auto MainWindow::MainWindowImplementation::configureSelectFolderButton(std::function<void()> onClick) -> void {
+    m_selectFolderButton.onClick(std::move(onClick));
+}
+
+auto MainWindow::MainWindowImplementation::updateOutputFolderPath(std::string_view path) -> void {
+    m_outputFolderPathLabel.text(utils::truncateWithEllipsis(path, 57));
 }
 
 auto MainWindow::MainWindowImplementation::configureLoopbackToggle(std::function<bool(bool)> onToggle) -> void {
@@ -424,6 +454,9 @@ auto MainWindow::MainWindowImplementation::enableControls(const bool enabled, co
             toDropdown->enabled(enabled);
     }
 
+    m_sampleFormatDropdown.enabled(enabled);
+    m_selectFolderButton.enabled(enabled);
+
     resize();
 }
 
@@ -525,6 +558,13 @@ auto MainWindow::MainWindowImplementation::resize() -> void {
     m_recordingLabel.setBounds(padding, recControlsY, slotW - (padding * 2), labelH);
     m_sampleFormatDropdown.setBounds(padding, recControlsY + labelH + verticalGap, slotW - (padding * 2), dropdownH);
     m_recordingButton.setBounds(slotW + padding, recControlsY + labelH + verticalGap, slotW - (padding * 2), dropdownH);
+
+    // Output folder: same row as "Sample format:" / recording button.
+    constexpr float outputFolderControlsY { recControlsY + labelH + verticalGap };
+
+    m_outputFolderLabel.setBounds((slotW * 2.0f) + padding, recControlsY, (slotW * 2.0f) - (padding * 2.0f), labelH);
+    m_outputFolderPathLabel.setBounds((slotW * 2.0f) + padding, outputFolderControlsY, (slotW * 2.0f) - (padding * 2.0f), dropdownH);
+    m_selectFolderButton.setBounds((slotW * 4.0f) + padding, outputFolderControlsY, slotW - (padding * 2.0f), dropdownH);
 
     constexpr float ioSectionY { recControlsY + labelH + verticalGap + dropdownH + (padding * 2) };
     const float thirdColW { totalW / 3.0f };

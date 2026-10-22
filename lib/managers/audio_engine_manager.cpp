@@ -156,12 +156,12 @@ ats::ResumableTask<void> write(std::chrono::milliseconds triggerInterval, std::m
     }
 }
 
-auto AudioEngineManager::startRecording(const ae::audio_format::AudioFormat format) -> std::expected<void, std::string> {
+auto AudioEngineManager::startRecording(const ae::audio_format::AudioFormat format, std::filesystem::path path) -> std::expected<void, std::string> {
     stopRecording();
 
-    auto startRecordingTask { ats::makeAtomicTask([this, format] () {
+    auto startRecordingTask { ats::makeAtomicTask([this, format, path = std::move(path)] () mutable {
         std::lock_guard lock { m_taskMutex };
-        return m_audioEngine->startRecording(format);
+        return m_audioEngine->startRecording(format, std::move(path));
     }) };
 
     const auto startRecordingResult { startRecordingTask->result() };

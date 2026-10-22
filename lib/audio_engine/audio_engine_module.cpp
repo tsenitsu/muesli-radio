@@ -212,7 +212,7 @@ public:
         return m_audioMixer;
     }
 
-    [[nodiscard]] auto startRecording(const audio_format::AudioFormat format) -> std::expected<void, std::string> {
+    [[nodiscard]] auto startRecording(const audio_format::AudioFormat format, std::filesystem::path path) -> std::expected<void, std::string> {
         if (not m_audioLibraryWrapper->isStreamRunning()) {
             return std::unexpected { std::string { "Audio stream is not running" } };
         }
@@ -238,7 +238,7 @@ public:
 
             const auto isDefaultRouting { std::ranges::all_of(routingList, [] (const auto& routing) { return not routing.isMono() and not routing.isStereo(); }) };
             if (not isDefaultRouting) {
-                if (auto inputAudioRecorder { audio_recorder::makeAudioRecorder(m_audioStreamParams->m_sampleRate, format, fileNames, routingList) }; not inputAudioRecorder.has_value()) {
+                if (auto inputAudioRecorder { audio_recorder::makeAudioRecorder(m_audioStreamParams->m_sampleRate, format, path, fileNames, routingList) }; not inputAudioRecorder.has_value()) {
                     return std::unexpected { std::format("Could not create input audio recorder: {}", inputAudioRecorder.error()) };
                 } else {
                     m_inputRecorder.swap(inputAudioRecorder.value());
@@ -263,7 +263,7 @@ public:
 
             const auto isDefaultRouting { std::ranges::all_of(routingList, [] (const auto& routing) { return not routing.isMono() and not routing.isStereo(); }) };
             if (not isDefaultRouting) {
-                if (auto outputAudioRecorder { audio_recorder::makeAudioRecorder(m_audioStreamParams->m_sampleRate, format, fileNames, routingList) }; not outputAudioRecorder.has_value()) {
+                if (auto outputAudioRecorder { audio_recorder::makeAudioRecorder(m_audioStreamParams->m_sampleRate, format, path, fileNames, routingList) }; not outputAudioRecorder.has_value()) {
                     return std::unexpected { std::format("Could not create output audio recorder: {}", outputAudioRecorder.error()) };
                 } else {
                     m_outputRecorder.swap(outputAudioRecorder.value());
@@ -288,7 +288,7 @@ public:
 
             const auto isDefaultRouting { std::ranges::all_of(routingList, [] (const auto& routing) { return not routing.isMono() and not routing.isStereo(); }) };
             if (not isDefaultRouting) {
-                if (auto outputAudioRecorder { audio_recorder::makeAudioRecorder(m_audioStreamParams->m_sampleRate, format, fileNames, routingList) }; not outputAudioRecorder.has_value()) {
+                if (auto outputAudioRecorder { audio_recorder::makeAudioRecorder(m_audioStreamParams->m_sampleRate, format, path, fileNames, routingList) }; not outputAudioRecorder.has_value()) {
                     return std::unexpected { std::format("Could not create loopback audio recorder: {}", outputAudioRecorder.error()) };
                 } else {
                     m_outputRecorder.swap(outputAudioRecorder.value());

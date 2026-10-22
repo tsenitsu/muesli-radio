@@ -1,8 +1,10 @@
 module audio_recorder;
 
+import utils;
+
 namespace audio_engine::audio_recorder {
 
-AudioRecorder::AudioRecorder([[maybe_unused]]const audio_device::SampleRate_t sampleRate,[[maybe_unused]] const audio_format::AudioFormat format,
+AudioRecorder::AudioRecorder([[maybe_unused]]const audio_device::SampleRate_t sampleRate,[[maybe_unused]] const audio_format::AudioFormat format, const std::filesystem::path& path,
             [[maybe_unused]]const std::vector<std::string>& fileNames, [[maybe_unused]]const std::vector<audio_mixer::ChannelRouting>& routingList)
   : m_writers {},
     m_routing {} {
@@ -38,6 +40,13 @@ AudioRecorder::AudioRecorder([[maybe_unused]]const audio_device::SampleRate_t sa
             continue;
         }
 
+        const auto fileName { utils::pathFromUtf8(name) };
+        if (fileName.empty() or fileName.has_parent_path()) {
+            throw std::invalid_argument { "Invalid characters in channel name" };
+        }
+
+        const auto filePath { path / fileName };
+
         const auto channelCount { isStereo? audio_device::ChannelCount_t { 2 } : audio_device::ChannelCount_t { 1 } };
 
         std::unique_ptr<AudioWriter> audioWriter { nullptr };
@@ -45,7 +54,7 @@ AudioRecorder::AudioRecorder([[maybe_unused]]const audio_device::SampleRate_t sa
         switch (format) {
             case audio_format::AudioFormat::SignedInt16:
                 if (auto result { audio_recorder::makeAudioWriter<audio_format::AudioFormat::SignedInt16>(
-                    name, sampleRate, channelCount) }; not result.has_value()) {
+                    filePath, sampleRate, channelCount) }; not result.has_value()) {
                     throw std::runtime_error { std::move(result).error() };
                 } else {
                     audioWriter = std::move(result).value();
@@ -55,7 +64,7 @@ AudioRecorder::AudioRecorder([[maybe_unused]]const audio_device::SampleRate_t sa
 
             case audio_format::AudioFormat::SignedInt24:
                 if (auto result { audio_recorder::makeAudioWriter<audio_format::AudioFormat::SignedInt24>(
-                    name, sampleRate, channelCount) }; not result.has_value()) {
+                    filePath, sampleRate, channelCount) }; not result.has_value()) {
                     throw std::runtime_error { std::move(result).error() };
                 } else {
                     audioWriter = std::move(result).value();
@@ -64,7 +73,7 @@ AudioRecorder::AudioRecorder([[maybe_unused]]const audio_device::SampleRate_t sa
                 break;
             case audio_format::AudioFormat::Float32:
                 if (auto result { audio_recorder::makeAudioWriter<audio_format::AudioFormat::Float32>(
-                    name, sampleRate, channelCount) }; not result.has_value()) {
+                    filePath, sampleRate, channelCount) }; not result.has_value()) {
                     throw std::runtime_error { std::move(result).error() };
                 } else {
                     audioWriter = std::move(result).value();

@@ -1,3 +1,5 @@
+find_package(nfd CONFIG REQUIRED)
+
 add_library(components
         title_bar.cpp
         main_window.cpp
@@ -7,6 +9,7 @@ add_library(components
         toast_popup.cpp
         level_meter.cpp
         button.cpp
+        folder_picker.cpp
 )
 
 target_custom_compiler_options(components)
@@ -23,7 +26,8 @@ target_sources(components
         toast_popup_module.cpp
         level_meter_module.cpp
         button_module.cpp
+        folder_picker_module.cpp
 )
 
-target_link_libraries(components PRIVATE visage colors fonts)
+target_link_libraries(components PRIVATE visage colors fonts nfd::nfd utils)
 
