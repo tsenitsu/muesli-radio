@@ -22,12 +22,12 @@ FileLogger::FileLogger(std::filesystem::path filePath, const std::uintmax_t maxF
         std::error_code ec {};
         std::filesystem::create_directories(m_filePath.parent_path(), ec);
         if (ec) {
-            throw std::runtime_error(std::format("Failed to create directory for file {}", m_filePath.generic_string()));
+            throw std::runtime_error(std::format("Failed to create directory for file {}", utils::pathToUtf8(m_filePath)));
         }
     }
 
     if (not openFile()) {
-        throw std::runtime_error(std::format("Failed to open file {}", m_filePath.generic_string()));
+        throw std::runtime_error(std::format("Failed to open file {}", utils::pathToUtf8(m_filePath)));
     }
 
     deleteOldFiles();
@@ -38,14 +38,14 @@ auto FileLogger::log(std::span<const LogEntry> entries) -> void {
     const auto size { std::filesystem::file_size(m_filePath, ec) };
 
     if (ec) {
-        throw std::runtime_error(std::format("Failed to get file size of {}: {}", m_filePath.generic_string(), ec.message()));
+        throw std::runtime_error(std::format("Failed to get file size of {}: {}", utils::pathToUtf8(m_filePath), ec.message()));
     }
 
     if (size > m_maxFileSize) {
         closeFile();
         rotateFile();
         if (not openFile()) {
-            throw std::runtime_error(std::format("Failed to reopen file {} after rotation", m_filePath.generic_string()));
+            throw std::runtime_error(std::format("Failed to reopen file {} after rotation", utils::pathToUtf8(m_filePath)));
         }
     }
 
@@ -56,7 +56,7 @@ auto FileLogger::log(std::span<const LogEntry> entries) -> void {
     m_file.flush();
 
     if (not m_file.good()) {
-        throw std::runtime_error(std::format("Failed to write to log file {}", m_filePath.generic_string()));
+        throw std::runtime_error(std::format("Failed to write to log file {}", utils::pathToUtf8(m_filePath)));
     }
 }
 
@@ -71,14 +71,16 @@ auto FileLogger::closeFile() -> void {
 }
 
 auto FileLogger::rotateFile() const -> void {
-    std::string newFileName { m_filePath.stem().generic_string() + std::format("_{}", utils::sanitizeFileName(utils::systemClockToString(std::chrono::system_clock::now(), "_", false))) + m_filePath.extension().generic_string() };
+    std::filesystem::path newFileName { m_filePath.stem() };
+    newFileName += std::format("_{}", utils::sanitizeFileName(utils::systemClockToString(std::chrono::system_clock::now(), "_", false)));
+    newFileName += m_filePath.extension();
     const auto rotatedPath { m_filePath.parent_path() / newFileName };
 
     std::error_code ec {};
     std::filesystem::rename(m_filePath, rotatedPath, ec);
 
     if (ec) {
-        throw std::runtime_error(std::format("Failed to rotate file {}: {}", m_filePath.generic_string(), ec.message()));
+        throw std::runtime_error(std::format("Failed to rotate file {}: {}", utils::pathToUtf8(m_filePath), ec.message()));
     }
 
     // Update last-write time so retention won't delete it immediately
@@ -88,7 +90,7 @@ auto FileLogger::rotateFile() const -> void {
         ec);
 
     if (ec) {
-        throw std::runtime_error(std::format("Failed to update write time for file file {}: {}", m_filePath.generic_string(), ec.message()));
+        throw std::runtime_error(std::format("Failed to update write time for file file {}: {}", utils::pathToUtf8(m_filePath), ec.message()));
     }
 
     deleteOldFiles();
@@ -129,7 +131,7 @@ auto FileLogger::deleteOldFiles() const -> void {
         if (now - lastWriteTime > m_retentionPeriod) {
             std::error_code removeEc {};
             std::filesystem::remove(path, removeEc);
-            // Ignore removal errors – retried on the next run
+            // Ignore removal errors, retried on the next run
         }
     }
 }
