@@ -410,7 +410,7 @@ protected:
     }
 
     [[nodiscard]] auto audioDeviceSummaryList(const audio_device::AudioDeviceType deviceType) -> std::expected<std::vector<audio_device::AudioDeviceSummary>, std::string> {
-        if (const auto probeResult { probeDevices() }; not probeResult.has_value()) {
+        if (auto probeResult { probeDevices() }; not probeResult.has_value()) {
             return std::unexpected { std::move(probeResult).error() };
         }
 
