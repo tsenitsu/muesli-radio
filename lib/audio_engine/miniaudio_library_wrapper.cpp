@@ -31,8 +31,10 @@ MiniaudioLibraryWrapper::MiniaudioLibraryWrapper(const LogCallback& logCallback,
 
     ma_context_config contextConfig { ma_context_config_init() };
     contextConfig.pLog = &m_log;
+    contextConfig.pBackends    = backendConfigs.data();
+    contextConfig.backendCount = static_cast<ma_uint32>(backendConfigs.size());
 
-    if (ma_context_init(backendConfigs.data(), static_cast<ma_uint32>(backendConfigs.size()), &contextConfig, &m_context) != MA_SUCCESS) {
+    if (ma_context_init(&contextConfig, &m_context) != MA_SUCCESS) {
         throw std::runtime_error { "Error initializing miniaudio context" };
     }
 
@@ -133,6 +135,7 @@ auto MiniaudioLibraryWrapper::openStream(const audio_stream_params::AudioStreamP
     // we can override it later on
     deviceConfig = ma_device_config_init(ma_device_type_duplex);
 
+    deviceConfig.pContext                   = &m_context;
     deviceConfig.dataCallback               = miniaudioAudioCallback;
     deviceConfig.sampleRate                 = audioStreamParams.m_sampleRate;
     deviceConfig.periodSizeInFrames         = audioStreamParams.m_bufferLength;
@@ -186,7 +189,7 @@ auto MiniaudioLibraryWrapper::openStream(const audio_stream_params::AudioStreamP
         deviceConfig.deviceType        = ma_device_type_loopback;
     } catch ([[maybe_unused]] const std::bad_cast& e) {}
 
-    if (const auto deviceInitResult { ma_device_init(&m_context, &deviceConfig, &m_device) }; deviceInitResult != MA_SUCCESS) {
+    if (const auto deviceInitResult { ma_device_init(&deviceConfig, &m_device) }; deviceInitResult != MA_SUCCESS) {
         return false;
     }
 
