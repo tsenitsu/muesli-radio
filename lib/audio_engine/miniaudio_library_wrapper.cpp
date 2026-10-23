@@ -43,10 +43,11 @@ MiniaudioLibraryWrapper::MiniaudioLibraryWrapper(const LogCallback& logCallback,
 
 MiniaudioLibraryWrapper::~MiniaudioLibraryWrapper() {
     ma_device_uninit(&m_device);
-    ma_log_uninit(&m_log);
 
     if (ma_context_uninit(&m_context) != MA_SUCCESS)
         m_logCallback(logger::makeLogEntry(logger::LogLevel::Error, "Miniaudio", "Failed to uninitialize miniaudio context"));
+
+    ma_log_uninit(&m_log);
 }
 
 auto MiniaudioLibraryWrapper::probeDevices() -> std::expected<std::vector<std::unique_ptr<const audio_device::AudioDevice> >, std::string> {
