@@ -18,10 +18,6 @@ TaskExecutor::~TaskExecutor() {
     }
 }
 
-#ifdef _MSC_VER
-    // MSVC's asan reports a container overflow error, but Clang's asan does not. It may be a MSVC false positive
-    __declspec(no_sanitize_address)
-#endif
 auto TaskExecutor::enqueueTask(std::unique_ptr<AsyncTask> task) -> void {
     {
         std::lock_guard lock(m_taskAccess);
