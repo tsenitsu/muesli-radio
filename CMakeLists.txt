@@ -34,16 +34,8 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
             set(VISAGE_ADDRESS_SANITIZER ON)
 
             add_compile_options(/fsanitize=address)
+            string(APPEND CMAKE_CXX_FLAGS " /D_DISABLE_VECTOR_ANNOTATION /D_DISABLE_STRING_ANNOTATION")
             add_link_options(/INCREMENTAL:NO)
-
-            # This avoids annotation mismatch
-            # CMake creates a hidden target called __cmake_cxx23 (you can see __cmake_cxx23.lib in your link line).
-            # You can inject the ASan flags directly into that target after it comes into existence – i.e.,
-            # after you’ve added the first library that uses import std;.
-            if(TARGET __cmake_cxx23)
-                target_compile_options(__cmake_cxx23 PRIVATE /fsanitize=address)
-                target_link_options(__cmake_cxx23 PRIVATE /INCREMENTAL:NO)
-            endif()
         endif()
         if (ENABLE_TSAN)
             message(FATAL_ERROR "Thread sanitizer is not supported by MSVC")
@@ -52,14 +44,11 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
         if (ENABLE_ASAN)
             set(VISAGE_ADDRESS_SANITIZER ON)
 
-            add_compile_options(-fsanitize=address,undefined,leak)
-            add_link_options(-fsanitize=address,undefined,leak)
-            if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-                add_compile_options(-D_GLIBCXX_SANITIZE_VECTOR)
-            endif()
+            add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
+            add_link_options(-fsanitize=address,undefined)
         endif()
         if (ENABLE_TSAN)
-            add_compile_options(-fsanitize=thread)
+            add_compile_options(-fsanitize=thread -fno-omit-frame-pointer)
             add_link_options(-fsanitize=thread)
         endif()
     endif()
