@@ -89,7 +89,12 @@ public:
     [[nodiscard]] auto startStream(std::optional<std::string> inputDeviceName,
                                    std::optional<std::string> outputDeviceName,
                                    std::optional<std::string> loopbackDeviceName,
-                                   audio_stream_params::BufferLength_t bufferLength) -> std::expected<void, std::string> {
+                                   audio_stream_params::BufferLength_t bufferLength,
+                                   audio_device::SampleRate_t sampleRate) -> std::expected<void, std::string> {
+        if (not isSampleRateAllowed(sampleRate)) {
+            return std::unexpected { std::format("Sample rate {} is not allowed", sampleRate) };
+        }
+
         if (not isBufferLengthAllowed(bufferLength)) {
             return std::unexpected { std::format("Buffer length {} is not allowed", bufferLength) };
         }
@@ -127,7 +132,7 @@ public:
             }
         }
 
-        auto streamParamsResult { audio_stream_params::makeAudioStreamParams(m_sampleRate, m_format, bufferLength, m_periodSize, input, output, loopback) };
+        auto streamParamsResult { audio_stream_params::makeAudioStreamParams(sampleRate, m_format, bufferLength, m_periodSize, input, output, loopback) };
 
         if (not streamParamsResult.has_value()) {
             return std::unexpected { std::format("Error creating stream params: {}", streamParamsResult.error()) };
@@ -348,6 +353,7 @@ public:
         return true;
     }
 
+    [[nodiscard]] static auto allowedSampleRates() -> const auto& { return m_allowedSampleRates; }
     [[nodiscard]] static auto allowedBufferLengths() -> const auto& { return m_allowedBufferLengths; }
 
     auto inputLevels(std::span<float> inputLevels) const -> void {
@@ -368,6 +374,10 @@ protected:
         }
 
         return deviceItr;
+    }
+
+    [[nodiscard]] static auto isSampleRateAllowed(const audio_device::SampleRate_t sampleRate) -> bool {
+        return std::ranges::find(m_allowedSampleRates, sampleRate) != std::ranges::end(m_allowedSampleRates);
     }
 
     [[nodiscard]] static auto isBufferLengthAllowed(const audio_stream_params::BufferLength_t bufferLength) -> bool {
@@ -507,9 +517,9 @@ protected:
         }
     }
 
-    static constexpr audio_device::SampleRate_t m_sampleRate { 48000 };
-    static constexpr audio_format::AudioFormat m_format { audio_format::AudioFormat::Float32 };
-    static constexpr audio_stream_params::PeriodSize_t m_periodSize { 3 };
+    static constexpr std::array<audio_device::SampleRate_t, 2> m_allowedSampleRates { 44100, 48000 };
+    static constexpr auto m_format { audio_format::AudioFormat::Float32 };
+    static constexpr auto m_periodSize   { audio_stream_params::PeriodSize_t { 3 } };
     static constexpr std::array<const audio_stream_params::BufferLength_t, 5> m_allowedBufferLengths { 1024, 2048, 4096, 8192, 16384 };
 
     std::unique_ptr<audio_mixer::AudioMixer<float>> m_audioMixer;

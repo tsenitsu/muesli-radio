@@ -26,6 +26,7 @@ public:
     AudioEngineMock() : AudioEngine<T> { nullptr } {}
 
     using AudioEngine<T>::getAudioDevice;
+    using AudioEngine<T>::isSampleRateAllowed;
     using AudioEngine<T>::isBufferLengthAllowed;
     using AudioEngine<T>::openStream;
     using AudioEngine<T>::closeStream;
@@ -33,6 +34,7 @@ public:
     using AudioEngine<T>::process;
     using AudioEngine<T>::audioDeviceSummaryList;
 
+    using AudioEngine<T>::m_allowedSampleRates;
     using AudioEngine<T>::m_allowedBufferLengths;
     using AudioEngine<T>::m_audioDevices;
     using AudioEngine<T>::m_audioLibraryWrapper;
@@ -128,7 +130,16 @@ TEST_F(AudioEngineTest, audioDeviceSummaryList) {
     EXPECT_EQ(m_audioEngineMock.audioDeviceSummaryList(audio_device::AudioDeviceType::Output), (std::vector { { audio_device::AudioDeviceSummary { "output", 2 } } }));
 }
 
-TEST_F(AudioEngineTest, isBufferLengthALlowed) {
+TEST_F(AudioEngineTest, isSampleRateAllowed) {
+    for (const auto sampleRate: m_audioEngineMock.m_allowedSampleRates) {
+        EXPECT_TRUE(m_audioEngineMock.isSampleRateAllowed(sampleRate));
+    }
+
+    EXPECT_FALSE(m_audioEngineMock.isSampleRateAllowed(96000));
+    EXPECT_FALSE(m_audioEngineMock.isSampleRateAllowed(32000));
+}
+
+TEST_F(AudioEngineTest, isBufferLengthAllowed) {
     for (const auto bufferLength: m_audioEngineMock.m_allowedBufferLengths) {
         EXPECT_TRUE(m_audioEngineMock.isBufferLengthAllowed(bufferLength));
     }
@@ -166,10 +177,11 @@ TEST_F(AudioEngineTest, startStream) {
     EXPECT_CALL(static_cast<AudioLibraryWrapperMock&>(*m_audioEngineMock.m_audioLibraryWrapper), closeStream)
         .Times(3);
 
-    EXPECT_EQ(m_audioEngineMock.startStream("input", "output", std::nullopt, 1234), std::unexpected { std::string { "Buffer length 1234 is not allowed" } });
-    EXPECT_EQ(m_audioEngineMock.startStream(std::nullopt, std::nullopt, std::nullopt, 2048), std::unexpected { std::string { "Error creating stream params: No devices provided" } });
-    EXPECT_EQ(m_audioEngineMock.startStream("input", std::nullopt, std::nullopt, 2048), std::unexpected { std::string { "Could not find input device input: Audio device not found" } });
-    EXPECT_EQ(m_audioEngineMock.startStream(std::nullopt, "output", std::nullopt, 2048), std::unexpected { std::string { "Could not find output device output: Audio device not found" } });
+    EXPECT_EQ(m_audioEngineMock.startStream("input", "output", std::nullopt, 2048, 96000), std::unexpected { std::string { "Sample rate 96000 is not allowed" } });
+    EXPECT_EQ(m_audioEngineMock.startStream("input", "output", std::nullopt, 1234, 44100), std::unexpected { std::string { "Buffer length 1234 is not allowed" } });
+    EXPECT_EQ(m_audioEngineMock.startStream(std::nullopt, std::nullopt, std::nullopt, 2048, 44100), std::unexpected { std::string { "Error creating stream params: No devices provided" } });
+    EXPECT_EQ(m_audioEngineMock.startStream("input", std::nullopt, std::nullopt, 2048, 44100), std::unexpected { std::string { "Could not find input device input: Audio device not found" } });
+    EXPECT_EQ(m_audioEngineMock.startStream(std::nullopt, "output", std::nullopt, 2048, 44100), std::unexpected { std::string { "Could not find output device output: Audio device not found" } });
 
     m_audioEngineMock.m_audioDevices.push_back(makeInputDevice());
     const auto inputChannels { m_audioEngineMock.m_audioDevices[0]->m_nativeDataFormats[0].m_maxChannels };
@@ -177,12 +189,12 @@ TEST_F(AudioEngineTest, startStream) {
     m_audioEngineMock.m_audioDevices.push_back(makeOutputDevice());
     const auto outputChannels { m_audioEngineMock.m_audioDevices[1]->m_nativeDataFormats[0].m_maxChannels };
 
-    EXPECT_EQ(m_audioEngineMock.startStream("input", std::nullopt, std::nullopt, 2048), std::unexpected { std::string { "Could not close running stream" } });
-    EXPECT_EQ(m_audioEngineMock.startStream("input", std::nullopt, std::nullopt, 2048), (std::expected<void, std::string> {}));
-    EXPECT_EQ(m_audioEngineMock.startStream(std::nullopt, "output", std::nullopt, 2048), std::unexpected { std::string { "Could not close running stream" } });
-    EXPECT_EQ(m_audioEngineMock.startStream(std::nullopt, "output", std::nullopt, 2048), (std::expected<void, std::string> {}));
-    EXPECT_EQ(m_audioEngineMock.startStream("input", "output", std::nullopt, 2048), std::unexpected { std::string { "Could not close running stream" } });
-    EXPECT_EQ(m_audioEngineMock.startStream("input", "output", std::nullopt, 2048), (std::expected<void, std::string> {}));
+    EXPECT_EQ(m_audioEngineMock.startStream("input", std::nullopt, std::nullopt, 2048, 44100), std::unexpected { std::string { "Could not close running stream" } });
+    EXPECT_EQ(m_audioEngineMock.startStream("input", std::nullopt, std::nullopt, 2048, 44100), (std::expected<void, std::string> {}));
+    EXPECT_EQ(m_audioEngineMock.startStream(std::nullopt, "output", std::nullopt, 2048, 44100), std::unexpected { std::string { "Could not close running stream" } });
+    EXPECT_EQ(m_audioEngineMock.startStream(std::nullopt, "output", std::nullopt, 2048, 44100), (std::expected<void, std::string> {}));
+    EXPECT_EQ(m_audioEngineMock.startStream("input", "output", std::nullopt, 2048, 44100), std::unexpected { std::string { "Could not close running stream" } });
+    EXPECT_EQ(m_audioEngineMock.startStream("input", "output", std::nullopt, 2048, 44100), (std::expected<void, std::string> {}));
 
     for (audio_device::ChannelCount_t channel { 0 }; channel < inputChannels; ++channel) {
         const std::string& inputChannelName { std::format ("Input channel {}", channel) };
@@ -266,7 +278,7 @@ TEST_F(AudioEngineTest, process) {
     m_audioEngineMock.m_audioDevices.push_back(makeInputDevice());
     m_audioEngineMock.m_audioDevices.push_back(makeOutputDevice());
 
-    EXPECT_EQ(m_audioEngineMock.startStream("input", "output", std::nullopt, 2048), (std::expected<void, std::string> {}));
+    EXPECT_EQ(m_audioEngineMock.startStream("input", "output", std::nullopt, 2048, 44100), (std::expected<void, std::string> {}));
 
     std::array inputSamples { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f };
     auto inputBuffer { audio_buffer::makeAudioBuffer<float>(audio_device::ChannelCount_t { 2 }, audio_stream_params::BufferLength_t { 5 }) };

@@ -24,6 +24,7 @@ public:
     MainWindowImplementation();
 
     auto configureAudioDriverDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection, std::pair<unsigned int, std::string> defaultValue) -> void;
+    auto configureSampleRateDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) -> void;
     auto configureInputDeviceDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) -> void;
     auto configureOutputDeviceDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) -> void;
     auto configureBufferLengthDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) -> void;
@@ -57,6 +58,8 @@ private:
     TitleBar m_settingsTitleBar;
     Label m_driverLabel;
     DropdownButton m_driverDropdown;
+    Label m_sampleRateLabel;
+    DropdownButton m_sampleRateDropdown;
     Label m_inputDeviceLabel;
     DropdownButton m_inputDeviceDropdown;
     Label m_outputDeviceLabel;
@@ -106,6 +109,10 @@ auto MainWindow::run() const -> void {
 
 auto MainWindow::configureAudioDriverDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection, std::pair<unsigned int, std::string> defaultValue) const -> void {
     m_mainWindowImplementation->configureAudioDriverDropdown(std::move(onMenuOpen), std::move(onSelection), std::move(defaultValue));
+}
+
+auto MainWindow::configureSampleRateDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) const -> void {
+    m_mainWindowImplementation->configureSampleRateDropdown(std::move(onMenuOpen), std::move(onSelection));
 }
 
 auto MainWindow::configureInputDeviceDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) const -> void {
@@ -189,22 +196,24 @@ MainWindow::MainWindowImplementation::MainWindowImplementation()
  :  m_applicationWindow {},
     m_settingsTitleBar { "Audio settings" },
     m_driverLabel { "Audio driver:" },
-    m_driverDropdown { "Select..." },
+    m_driverDropdown { "..." },
+    m_sampleRateLabel { "Sample rate:" },
+    m_sampleRateDropdown { "..." },
     m_inputDeviceLabel { "Input device:" },
-    m_inputDeviceDropdown { "Select..." },
+    m_inputDeviceDropdown { "..." },
     m_outputDeviceLabel { "Output device:" },
-    m_outputDeviceDropdown { "Select..." },
+    m_outputDeviceDropdown { "..." },
     m_loopbackToggle { "", "\xE2\x9C\x93" },
     m_loopbackLabel { "Loopback" },
     m_bufferLengthLabel { "Buffer length:" },
-    m_bufferLengthDropdown { "Select..." },
+    m_bufferLengthDropdown { "..." },
     m_openDeviceButton { "Open device(s)" },
     m_recordingTitleBar { "Recording settings" },
     m_recordingLabel { "Sample format:" },
-    m_sampleFormatDropdown { "Select..." },
+    m_sampleFormatDropdown { "..." },
     m_recordingButton { "Start recording", "Stop recording" },
     m_outputFolderLabel { "Output folder:" },
-    m_outputFolderPathLabel { utils::truncateWithEllipsis(utils::pathToUtf8(std::filesystem::current_path()), 57) },
+    m_outputFolderPathLabel { utils::pathToUtf8(std::filesystem::current_path()) },
     m_selectFolderButton { "Select folder" },
     m_inputTitleBar { "Inputs" },
     m_outputTitleBar { "Outputs" },
@@ -225,6 +234,9 @@ MainWindow::MainWindowImplementation::MainWindowImplementation()
 
     m_applicationWindow.addChild(m_driverLabel);
     m_applicationWindow.addChild(m_driverDropdown);
+
+    m_applicationWindow.addChild(m_sampleRateLabel);
+    m_applicationWindow.addChild(m_sampleRateDropdown);
 
     m_applicationWindow.addChild(m_inputDeviceLabel);
     m_applicationWindow.addChild(m_inputDeviceDropdown);
@@ -272,6 +284,11 @@ auto MainWindow::MainWindowImplementation::configureAudioDriverDropdown(std::fun
 
     m_driverDropdown.selectedId(defaultValue.first);
     m_driverDropdown.text(defaultValue.second);
+}
+
+auto MainWindow::MainWindowImplementation::configureSampleRateDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) -> void {
+    m_sampleRateDropdown.onMenuOpen(std::move(onMenuOpen));
+    m_sampleRateDropdown.onSelection(std::move(onSelection));
 }
 
 auto MainWindow::MainWindowImplementation::configureInputDeviceDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) -> void {
@@ -323,7 +340,7 @@ auto MainWindow::MainWindowImplementation::configureSelectFolderButton(std::func
 }
 
 auto MainWindow::MainWindowImplementation::updateOutputFolderPath(std::string_view path) -> void {
-    m_outputFolderPathLabel.text(utils::truncateWithEllipsis(path, 57));
+    m_outputFolderPathLabel.text(path);
 }
 
 auto MainWindow::MainWindowImplementation::configureLoopbackToggle(std::function<bool(bool)> onToggle) -> void {
@@ -355,7 +372,7 @@ auto MainWindow::MainWindowImplementation::addInputRow(std::string_view inputNam
     m_applicationWindow.addChild(fromLabel.get());
     m_inputFromLabels.push_back(std::move(fromLabel));
 
-    auto fromDrop { std::make_unique<DropdownButton>("Select...") };
+    auto fromDrop { std::make_unique<DropdownButton>("...") };
     fromDrop->onMenuOpen(std::move(onInputMenuOpen));
     fromDrop->onSelection(std::move(onInputSelection));
     m_applicationWindow.addChild(fromDrop.get());
@@ -365,7 +382,7 @@ auto MainWindow::MainWindowImplementation::addInputRow(std::string_view inputNam
     m_applicationWindow.addChild(toLabel.get());
     m_inputToLabels.push_back(std::move(toLabel));
 
-    auto toDrop { std::make_unique<DropdownButton>("Select...") };
+    auto toDrop { std::make_unique<DropdownButton>("...") };
     toDrop->onMenuOpen(std::move(onOutputMenuOpen));
     toDrop->onSelection(std::move(onOutputSelection));
     m_applicationWindow.addChild(toDrop.get());
@@ -390,7 +407,7 @@ auto MainWindow::MainWindowImplementation::addOutputRow(std::string_view outputN
     m_applicationWindow.addChild(label.get());
     m_outputToLabels.push_back(std::move(label));
 
-    auto drop { std::make_unique<DropdownButton>("Select...") };
+    auto drop { std::make_unique<DropdownButton>("...") };
     drop->onMenuOpen(std::move(onOutputMenuOpen));
     drop->onSelection(std::move(onOutputSelection));
     m_applicationWindow.addChild(drop.get());
@@ -401,6 +418,7 @@ auto MainWindow::MainWindowImplementation::addOutputRow(std::string_view outputN
 
 auto MainWindow::MainWindowImplementation::enableControls(const bool enabled, const bool allowRecordingButton) -> void {
     m_driverDropdown.enabled(enabled);
+    m_sampleRateDropdown.enabled(enabled);
     m_inputDeviceDropdown.enabled(enabled);
     m_outputDeviceDropdown.enabled(enabled);
     m_bufferLengthDropdown.enabled(enabled);
@@ -500,7 +518,7 @@ auto MainWindow::MainWindowImplementation::resize() -> void {
     const float totalW { m_applicationWindow.width() };
 
     // Protect against asynchronous mapping traps on Linux
-    if (totalW <= 0.0f || m_applicationWindow.height() <= 0.0f) {
+    if (totalW <= 0.0f or m_applicationWindow.height() <= 0.0f) {
         return;
     }
 
@@ -526,12 +544,33 @@ auto MainWindow::MainWindowImplementation::resize() -> void {
         }
     };
 
-    const float smallSlotW { slotW * 0.75f };
-    const float largeSlotW { slotW * 1.25f };
+    // Component sizing definitions (Sample rate & Buffer length set to +5% instead of +10%)
+    const float driverW { slotW * 0.75f };
+    const float sampleRateW { slotW * 0.45f * 1.05f };
+    const float bufferLengthW { slotW * 0.45f * 1.05f };
+    const float openButtonW { driverW };               // Matches driver dropdown width
 
-    setColumn(0.0f, smallSlotW, &m_driverLabel, &m_driverDropdown);
-    setColumn(smallSlotW, largeSlotW, &m_inputDeviceLabel, &m_inputDeviceDropdown);
-    setColumn(slotW * 2.0f, largeSlotW, &m_outputDeviceLabel, &m_outputDeviceDropdown);
+    // Input and Output devices share the remaining space equally
+    const float remainingW { totalW - (driverW + sampleRateW + bufferLengthW + openButtonW) };
+    const float deviceW { remainingW * 0.5f };
+
+    // Layout tracking for the top row:
+    float currentX { 0.0f };
+
+    // 1. Driver Dropdown
+    setColumn(currentX, driverW, &m_driverLabel, &m_driverDropdown);
+    currentX += driverW;
+
+    // 2. Sample Rate Dropdown (Adjusted to +5%)
+    setColumn(currentX, sampleRateW, &m_sampleRateLabel, &m_sampleRateDropdown);
+    currentX += sampleRateW;
+
+    // 3. Input Device Dropdown (Takes remaining free space)
+    setColumn(currentX, deviceW, &m_inputDeviceLabel, &m_inputDeviceDropdown);
+    currentX += deviceW;
+
+    // 4. Output Device Dropdown (Takes remaining free space)
+    setColumn(currentX, deviceW, &m_outputDeviceLabel, &m_outputDeviceDropdown);
 
     // Small checkbox + label, sharing the "Output device:" row and right-aligned
     // to the same edge as the output device dropdown below it.
@@ -539,7 +578,7 @@ auto MainWindow::MainWindowImplementation::resize() -> void {
     constexpr float checkboxLabelGap { 6.0f };
     constexpr float loopbackLabelW { 75.0f };
 
-    const float outputColumnRightEdge { (slotW * 2.0f) + largeSlotW - padding };
+    const float outputColumnRightEdge { currentX + deviceW - padding };
     const float smallLabelX { outputColumnRightEdge - loopbackLabelW };
     const float smallCheckboxX { smallLabelX - checkboxLabelGap - smallCheckboxSize };
     constexpr float smallCheckboxY { settingsY + ((labelH - smallCheckboxSize) * 0.5f) };
@@ -547,24 +586,40 @@ auto MainWindow::MainWindowImplementation::resize() -> void {
     m_loopbackToggle.setBounds(smallCheckboxX, smallCheckboxY, smallCheckboxSize, smallCheckboxSize);
     m_loopbackLabel.setBounds(smallLabelX, settingsY, loopbackLabelW, labelH);
 
-    setColumn(slotW * 2.0f + largeSlotW, smallSlotW, &m_bufferLengthLabel, &m_bufferLengthDropdown);
-    setColumn(slotW * 4.0f, slotW, nullptr, &m_openDeviceButton);
+    currentX += deviceW;
+
+    // 5. Buffer Length Dropdown (Adjusted to +5%)
+    setColumn(currentX, bufferLengthW, &m_bufferLengthLabel, &m_bufferLengthDropdown);
+    currentX += bufferLengthW;
+
+    // 6. Open Device Button
+    setColumn(currentX, openButtonW, nullptr, &m_openDeviceButton);
 
     constexpr float recordingSectionY { settingsY + labelH + verticalGap + dropdownH + (padding * 2) };
     m_recordingTitleBar.setBounds(0, recordingSectionY, totalW, titleH);
 
     constexpr float recControlsY { recordingSectionY + titleH + padding };
-
-    m_recordingLabel.setBounds(padding, recControlsY, slotW - (padding * 2), labelH);
-    m_sampleFormatDropdown.setBounds(padding, recControlsY + labelH + verticalGap, slotW - (padding * 2), dropdownH);
-    m_recordingButton.setBounds(slotW + padding, recControlsY + labelH + verticalGap, slotW - (padding * 2), dropdownH);
-
-    // Output folder: same row as "Sample format:" / recording button.
     constexpr float outputFolderControlsY { recControlsY + labelH + verticalGap };
 
-    m_outputFolderLabel.setBounds((slotW * 2.0f) + padding, recControlsY, (slotW * 2.0f) - (padding * 2.0f), labelH);
-    m_outputFolderPathLabel.setBounds((slotW * 2.0f) + padding, outputFolderControlsY, (slotW * 2.0f) - (padding * 2.0f), dropdownH);
-    m_selectFolderButton.setBounds((slotW * 4.0f) + padding, outputFolderControlsY, slotW - (padding * 2.0f), dropdownH);
+    float recX { 0.0f };
+
+    // 1. Recording Label & Sample Format Dropdown (width = driverW)
+    m_recordingLabel.setBounds(recX + padding, recControlsY, driverW - (padding * 2.0f), labelH);
+    m_sampleFormatDropdown.setBounds(recX + padding, outputFolderControlsY, driverW - (padding * 2.0f), dropdownH);
+    recX += driverW;
+
+    // 2. Recording Button (width = driverW)
+    m_recordingButton.setBounds(recX + padding, outputFolderControlsY, driverW - (padding * 2.0f), dropdownH);
+    recX += driverW;
+
+    // 3. Select Folder Button at the far right (width = driverW)
+    const float selectFolderX { totalW - driverW };
+    m_selectFolderButton.setBounds(selectFolderX + padding, outputFolderControlsY, driverW - (padding * 2.0f), dropdownH);
+
+    // 4. Output Folder Label & Path Label take the remaining space between Recording Button and Select Folder Button
+    const float outputFolderW { selectFolderX - recX };
+    m_outputFolderLabel.setBounds(recX + padding, recControlsY, outputFolderW - (padding * 2.0f), labelH);
+    m_outputFolderPathLabel.setBounds(recX + padding, outputFolderControlsY, outputFolderW - (padding * 2.0f), dropdownH);
 
     constexpr float ioSectionY { recControlsY + labelH + verticalGap + dropdownH + (padding * 2) };
     const float thirdColW { totalW / 3.0f };

@@ -12,7 +12,7 @@ const std::map<audio_format::AudioFormat, std::string_view> audioFormatToString 
     { audio_format::AudioFormat::SignedInt16,   "16-bit Signed Int" },
     { audio_format::AudioFormat::SignedInt24,   "24-bit Signed Int" },
     { audio_format::AudioFormat::SignedInt32,   "32-bit Signed Int" },
-    { audio_format::AudioFormat::Float32,       "32-bit Floating Point" }
+    { audio_format::AudioFormat::Float32,       "32-bit Float" }
 };
 
 const std::map<ma_format, audio_format::AudioFormat> maFormatToAudioFormat = {

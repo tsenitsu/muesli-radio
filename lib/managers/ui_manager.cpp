@@ -40,6 +40,7 @@ UiManager::UiManager(std::expected<AudioEngineManager*, std::string>&& engineMan
  :  m_audioEngineManager { nullptr },
     m_inputAudioDeviceSummaryList {},
     m_outputAudioDeviceSummaryList {},
+    m_selectedSampleRateIndex { std::nullopt },
     m_selectedInputDeviceIndex { std::nullopt },
     m_selectedOutputDeviceIndex { std::nullopt },
     m_selectedBufferLengthIndex { std::nullopt },
@@ -81,6 +82,7 @@ UiManager::UiManager(std::expected<AudioEngineManager*, std::string>&& engineMan
     };
 
     setupDriverDropdown(defaultDriver);
+    setupSampleRateDropdown();
     setupDeviceDropdowns();
     setupBufferLengthDropdown();
     setupOpenDevicesButton();
@@ -115,6 +117,19 @@ auto UiManager::setupDriverDropdown(std::pair<int, std::string> defaultDriver) -
             m_selectedOutputDeviceIndex = std::nullopt;
         },
         std::move(defaultDriver));
+}
+
+auto UiManager::setupSampleRateDropdown() -> void {
+    m_mainWindow->configureSampleRateDropdown(
+        [this] {
+            return makeMenuItems(
+                m_audioEngineManager->allowedSampleRates(),
+                [](const auto& sampleRate) { return std::format("{} Hz", std::to_string(sampleRate)); }
+            );
+        },
+        [this](const unsigned int id, std::string_view) {
+            m_selectedSampleRateIndex = id;
+        });
 }
 
 auto UiManager::setupDeviceDropdowns() -> void {
@@ -183,6 +198,11 @@ auto UiManager::setupBufferLengthDropdown() -> void {
 
 auto UiManager::setupOpenDevicesButton() -> void {
     m_mainWindow->configureOpenDevicesButton([this] {
+        if (not m_selectedSampleRateIndex.has_value()) {
+            m_mainWindow->postToast("Sample rate not selected");
+            return;
+        }
+
         if (not m_selectedBufferLengthIndex.has_value()) {
             m_mainWindow->postToast("Buffer length not selected");
             return;
@@ -229,7 +249,8 @@ auto UiManager::setupOpenDevicesButton() -> void {
             std::move(inputDeviceName),
             std::move(outputDeviceName),
             std::move(loopbackDeviceName),
-            m_audioEngineManager->allowedBufferLengths()[m_selectedBufferLengthIndex.value()]).get() };
+            m_audioEngineManager->allowedBufferLengths()[m_selectedBufferLengthIndex.value()],
+            m_audioEngineManager->allowedSampleRates()[m_selectedSampleRateIndex.value()]).get() };
 
         if (not taskResult.has_value()) {
             // Failure! The UI and class members remain completely untouched.

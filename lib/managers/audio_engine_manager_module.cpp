@@ -17,6 +17,7 @@ public:
     AudioEngineManager(ats::AsyncTaskScheduler& scheduler, LoggerManager& loggerManager);
     ~AudioEngineManager() override;
 
+    [[nodiscard]] static auto allowedSampleRates() -> decltype(ae::AudioEngine<ae::audio_library_wrapper::MiniaudioLibraryWrapper>::allowedSampleRates())&;
     [[nodiscard]] static auto allowedBufferLengths() -> decltype(ae::AudioEngine<ae::audio_library_wrapper::MiniaudioLibraryWrapper>::allowedBufferLengths())&;
 
     [[nodiscard]] auto audioDriver(ae::audio_driver::AudioDriver newAudioDriver) -> ats::Result<std::expected<void, std::string>>;
@@ -33,7 +34,8 @@ public:
     [[nodiscard]] auto startStream(std::optional<std::string> inputDeviceName,
                                    std::optional<std::string> outputDeviceName,
                                    std::optional<std::string> loopbackDeviceName,
-                                   ae::audio_stream_params::BufferLength_t bufferLength) -> ats::Result<std::expected<void, std::string>>;
+                                   ae::audio_stream_params::BufferLength_t bufferLength,
+                                   ae::audio_device::SampleRate_t sampleRate) -> ats::Result<std::expected<void, std::string>>;
 
     [[nodiscard]] auto startRecording(ae::audio_format::AudioFormat format, std::filesystem::path path) -> std::expected<void, std::string>;
                   auto stopRecording() -> void;

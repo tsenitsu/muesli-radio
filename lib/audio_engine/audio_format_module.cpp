@@ -22,7 +22,7 @@ export [[nodiscard]] auto constexpr toString(const AudioFormat format) -> std::e
         case AudioFormat::SignedInt16:     return "16-bit Signed Int";
         case AudioFormat::SignedInt24:     return "24-bit Signed Int";
         case AudioFormat::SignedInt32:     return "32-bit Signed Int";
-        case AudioFormat::Float32:         return "32-bit Floating Point";
+        case AudioFormat::Float32:         return "32-bit Float";
     };
 
     return std::unexpected { std::string { "Audio format unknown" } };

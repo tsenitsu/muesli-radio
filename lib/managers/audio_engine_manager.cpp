@@ -27,6 +27,10 @@ AudioEngineManager::~AudioEngineManager() {
     waitForAllTasks();
 }
 
+auto AudioEngineManager::allowedSampleRates() -> decltype(ae::AudioEngine<ae::audio_library_wrapper::MiniaudioLibraryWrapper>::allowedSampleRates())& {
+    return ae::AudioEngine<ae::audio_library_wrapper::MiniaudioLibraryWrapper>::allowedSampleRates();
+}
+
 auto AudioEngineManager::allowedBufferLengths() -> decltype(ae::AudioEngine<ae::audio_library_wrapper::MiniaudioLibraryWrapper>::allowedBufferLengths())& {
     return ae::AudioEngine<ae::audio_library_wrapper::MiniaudioLibraryWrapper>::allowedBufferLengths();
 }
@@ -120,12 +124,13 @@ auto AudioEngineManager::outputAudioDeviceSummaryList() -> ats::Result<std::expe
 auto AudioEngineManager::startStream(std::optional<std::string> inputDeviceName,
                                      std::optional<std::string> outputDeviceName,
                                      std::optional<std::string> loopbackDeviceName,
-                                     ae::audio_stream_params::BufferLength_t bufferLength) -> ats::Result<std::expected<void, std::string>> {
+                                     const ae::audio_stream_params::BufferLength_t bufferLength,
+                                     const ae::audio_device::SampleRate_t sampleRate) -> ats::Result<std::expected<void, std::string>> {
     stopRecording();
 
-    auto task { ats::makeAtomicTask([this, inputDeviceName = std::move(inputDeviceName), outputDeviceName = std::move(outputDeviceName), loopbackDeviceName = std::move(loopbackDeviceName), bufferLength] () mutable {
+    auto task { ats::makeAtomicTask([this, inputDeviceName = std::move(inputDeviceName), outputDeviceName = std::move(outputDeviceName), loopbackDeviceName = std::move(loopbackDeviceName), bufferLength, sampleRate] () mutable {
         std::lock_guard lock { m_taskMutex };
-        return m_audioEngine->startStream(std::move(inputDeviceName), std::move(outputDeviceName), std::move(loopbackDeviceName), bufferLength);
+        return m_audioEngine->startStream(std::move(inputDeviceName), std::move(outputDeviceName), std::move(loopbackDeviceName), bufferLength, sampleRate);
     }) };
 
     auto result { task->result() };

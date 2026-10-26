@@ -21,6 +21,7 @@ public:
 
 private:
     auto setupDriverDropdown(std::pair<int, std::string> defaultDriver) -> void;
+    auto setupSampleRateDropdown() -> void;
     auto setupDeviceDropdowns() -> void;
     auto setupBufferLengthDropdown() -> void;
     auto setupOpenDevicesButton() -> void;
@@ -34,6 +35,7 @@ private:
     AudioEngineManager* m_audioEngineManager;
     std::vector<audio_engine::audio_device::AudioDeviceSummary> m_inputAudioDeviceSummaryList;
     std::vector<audio_engine::audio_device::AudioDeviceSummary> m_outputAudioDeviceSummaryList;
+    std::optional<unsigned int> m_selectedSampleRateIndex;
     std::optional<unsigned int> m_selectedInputDeviceIndex;
     std::optional<unsigned int> m_selectedOutputDeviceIndex;
     std::optional<unsigned int> m_selectedBufferLengthIndex;
