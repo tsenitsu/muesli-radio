@@ -22,7 +22,7 @@ public:
     ResumableTask(const ResumableTask& other) = delete;
     ResumableTask& operator=(ResumableTask&& other) = delete;
 
-    [[nodiscard]] auto done() const -> bool override { return m_handle.done();};
+    [[nodiscard]] auto done() const -> bool override { return m_handle.done();}
 
     auto operator()() -> void override {
         if (not areDependenciesMet())
@@ -36,7 +36,7 @@ public:
         }
     }
 
-    [[nodiscard]] auto result() const -> Result<Res> { return m_handle.promise().m_result; };
+    [[nodiscard]] auto result() const -> Result<Res> { return m_handle.promise().m_result; }
 
 private:
     std::coroutine_handle<promise_type> m_handle;

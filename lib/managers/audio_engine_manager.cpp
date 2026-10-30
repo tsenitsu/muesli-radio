@@ -128,9 +128,9 @@ auto AudioEngineManager::startStream(std::optional<std::string> inputDeviceName,
                                      const ae::audio_device::SampleRate_t sampleRate) -> ats::Result<std::expected<void, std::string>> {
     stopRecording();
 
-    auto task { ats::makeAtomicTask([this, inputDeviceName = std::move(inputDeviceName), outputDeviceName = std::move(outputDeviceName), loopbackDeviceName = std::move(loopbackDeviceName), bufferLength, sampleRate] () mutable {
+    auto task { ats::makeAtomicTask([this, inputName = std::move(inputDeviceName), outputName = std::move(outputDeviceName), loopbackName = std::move(loopbackDeviceName), bufferLength, sampleRate] () mutable {
         std::lock_guard lock { m_taskMutex };
-        return m_audioEngine->startStream(std::move(inputDeviceName), std::move(outputDeviceName), std::move(loopbackDeviceName), bufferLength, sampleRate);
+        return m_audioEngine->startStream(std::move(inputName), std::move(outputName), std::move(loopbackName), bufferLength, sampleRate);
     }) };
 
     auto result { task->result() };
@@ -161,10 +161,10 @@ ats::ResumableTask<void> write(std::chrono::milliseconds triggerInterval, std::m
     }
 }
 
-auto AudioEngineManager::startRecording(const ae::audio_format::AudioFormat format, std::filesystem::path path) -> std::expected<void, std::string> {
+auto AudioEngineManager::startRecording(const ae::audio_format::AudioFormat format, std::filesystem::path recordingPath) -> std::expected<void, std::string> {
     stopRecording();
 
-    auto startRecordingTask { ats::makeAtomicTask([this, format, path = std::move(path)] () mutable {
+    auto startRecordingTask { ats::makeAtomicTask([this, format, path = std::move(recordingPath)] () mutable {
         std::lock_guard lock { m_taskMutex };
         return m_audioEngine->startRecording(format, std::move(path));
     }) };

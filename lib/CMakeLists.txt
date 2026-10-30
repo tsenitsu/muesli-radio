@@ -2,6 +2,7 @@ FetchContent_Declare(
         visage
         GIT_REPOSITORY https://github.com/VitalAudio/visage
         GIT_TAG        main
+        SYSTEM
 )
 
 FetchContent_MakeAvailable(visage)

@@ -30,7 +30,7 @@ public:
         }
 
         return true;
-    };
+    }
 
 protected:
     auto signalCompletion() -> void { m_signal.signalCompletion(); }

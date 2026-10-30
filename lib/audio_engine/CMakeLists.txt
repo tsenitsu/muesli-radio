@@ -30,6 +30,7 @@ FetchContent_Declare(
         miniaudio
         GIT_REPOSITORY https://github.com/mackron/miniaudio
         GIT_TAG        dev-0.12
+        SYSTEM
 )
 
 FetchContent_MakeAvailable(miniaudio)
