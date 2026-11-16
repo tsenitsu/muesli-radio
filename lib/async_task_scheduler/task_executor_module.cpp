@@ -13,13 +13,11 @@ public:
 
     auto enqueueTask(std::unique_ptr<AsyncTask> task) -> void;
 
-protected:
+private:
     auto executeTasks(const std::stop_token& stopHandle) -> void;
 
     std::vector<std::unique_ptr<AsyncTask>> m_tasks;
     std::vector<std::unique_ptr<AsyncTask>> m_pendingTasks;
-
-private:
     std::mutex m_taskAccess;
     std::condition_variable_any m_taskAvailable;
     std::jthread m_taskExecutor;

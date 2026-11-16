@@ -4,6 +4,7 @@ add_executable(
         task_executor_tests.cpp
         async_task_scheduler_tests.cpp
         resumable_task_tests.cpp
+        task_manager_tests.cpp
 )
 
 target_custom_compiler_options(async-task-scheduler-unit-tests)
