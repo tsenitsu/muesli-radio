@@ -20,37 +20,36 @@ public:
     MOCK_METHOD(bool, isStreamRunning, (), (const, override));
 };
 
-template <class T>
-class AudioEngineMock final: public AudioEngine<T> {
+class AudioEngineMock final: public AudioEngine {
 public:
-    AudioEngineMock() : AudioEngine<T> { nullptr } {}
+    AudioEngineMock() : AudioEngine { nullptr, std::make_unique<AudioLibraryWrapperMock>(nullptr, audio_driver::availableAudioDrivers[0]) } {}
 
-    using AudioEngine<T>::getAudioDevice;
-    using AudioEngine<T>::isSampleRateAllowed;
-    using AudioEngine<T>::isBufferLengthAllowed;
-    using AudioEngine<T>::openStream;
-    using AudioEngine<T>::closeStream;
-    using AudioEngine<T>::processInput;
-    using AudioEngine<T>::process;
-    using AudioEngine<T>::audioDeviceSummaryList;
+    using AudioEngine::getAudioDevice;
+    using AudioEngine::isSampleRateAllowed;
+    using AudioEngine::isBufferLengthAllowed;
+    using AudioEngine::openStream;
+    using AudioEngine::closeStream;
+    using AudioEngine::processInput;
+    using AudioEngine::process;
+    using AudioEngine::audioDeviceSummaryList;
 
-    using AudioEngine<T>::m_allowedSampleRates;
-    using AudioEngine<T>::m_allowedBufferLengths;
-    using AudioEngine<T>::m_audioDevices;
-    using AudioEngine<T>::m_audioLibraryWrapper;
-    using AudioEngine<T>::m_audioStreamParams;
-    using AudioEngine<T>::m_processedInputBuffer;
-    using AudioEngine<T>::m_audioMixer;
-    using AudioEngine<T>::m_inputRingAudioBuffer;
-    using AudioEngine<T>::m_outputRingAudioBuffer;
-    using AudioEngine<T>::m_isRecording;
-    using AudioEngine<T>::m_inputAudioStats;
-    using AudioEngine<T>::m_outputAudioStats;
+    using AudioEngine::m_allowedSampleRates;
+    using AudioEngine::m_allowedBufferLengths;
+    using AudioEngine::m_audioDevices;
+    using AudioEngine::m_audioLibraryWrapper;
+    using AudioEngine::m_audioStreamParams;
+    using AudioEngine::m_processedInputBuffer;
+    using AudioEngine::m_audioMixer;
+    using AudioEngine::m_inputRingAudioBuffer;
+    using AudioEngine::m_outputRingAudioBuffer;
+    using AudioEngine::m_isRecording;
+    using AudioEngine::m_inputAudioStats;
+    using AudioEngine::m_outputAudioStats;
 };
 
 class AudioEngineTest: public testing::Test {
 protected:
-    AudioEngineMock<AudioLibraryWrapperMock> m_audioEngineMock;
+    AudioEngineMock m_audioEngineMock;
 };
 
 auto makeInputDevice() -> auto { return audio_device::makeAudioDevice(audio_device::DeviceId { 1 }, "input", false,

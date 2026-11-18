@@ -17,505 +17,72 @@ import std;
 
 namespace audio_engine {
 
-export template<class T> requires std::derived_from<T, audio_library_wrapper::AudioLibraryWrapper>
-class AudioEngine {
+export class AudioEngine {
 public:
-    explicit AudioEngine(const audio_library_wrapper::LogCallback& logCallback, const audio_driver::AudioDriver newAudioDriver = audio_driver::availableAudioDrivers[0])
-     :  m_audioMixer { nullptr },
-        m_audioDevices { std::vector<std::unique_ptr<const audio_device::AudioDevice>> {} },
-        m_audioStreamParams { nullptr },
-        m_processedInputBuffer { nullptr },
-        m_inputRingAudioBuffer { nullptr },
-        m_outputRingAudioBuffer { nullptr },
-        m_isRecording { false },
-        m_inputRecorder { nullptr },
-        m_outputRecorder { nullptr },
-        m_inputAudioStats { std::vector<std::unique_ptr<audio_buffer::AudioStats<float>>> {} },
-        m_outputAudioStats { std::vector<std::unique_ptr<audio_buffer::AudioStats<float>>> {} },
-        m_audioLibraryWrapper { nullptr },
-        m_logCallback { logCallback },
-        m_audioCallback { [this] (const audio_buffer::AudioBuffer<float>& inputBuffer, audio_buffer::AudioBuffer<float>& outputBuffer) {
-            process(inputBuffer, outputBuffer);
-        } } {
-        if (const auto setAudioDriverResult { audioDriver(newAudioDriver) }; not setAudioDriverResult.has_value()) {
-            throw std::runtime_error { std::string { std::format("Error setting audio driver: {}",  setAudioDriverResult.error()) } };
-        }
-    }
+    // audioLibraryWrapper must not be null
+    AudioEngine(const audio_library_wrapper::LogCallback& logCallback,
+                std::unique_ptr<audio_library_wrapper::AudioLibraryWrapper> audioLibraryWrapper);
 
     virtual ~AudioEngine() = default;
 
-    [[nodiscard]] auto audioDriver(const audio_driver::AudioDriver newAudioDriver) -> std::expected<void, std::string> {
-        auto audioLibraryWrapper { audio_library_wrapper::makeAudioLibraryWrapper<T>(m_logCallback, newAudioDriver) };
-
-        if (not audioLibraryWrapper.has_value()) {
-            return std::unexpected { audioLibraryWrapper.error() };
-        }
-
-        m_audioLibraryWrapper.swap(audioLibraryWrapper.value());
-        return {};
-    }
+    [[nodiscard]] auto audioDriver(audio_driver::AudioDriver newAudioDriver) -> std::expected<void, std::string>;
 
     [[nodiscard]] auto audioDriver() const -> std::expected<audio_driver::AudioDriver, std::string> {
         return m_audioLibraryWrapper->audioDriver();
     }
 
-    [[nodiscard]] auto probeDevices() -> std::expected<void, std::string> {
-        auto audioDevicesResult { m_audioLibraryWrapper->probeDevices() };
+    [[nodiscard]] auto probeDevices() -> std::expected<void, std::string>;
 
-        if (not audioDevicesResult.has_value()) {
-            return std::unexpected { std::format("Could not probe devices: {}\n", audioDevicesResult.error()) };
-        }
+    [[nodiscard]] auto defaultInputAudioDeviceName() const -> std::expected<std::string, std::string>;
+    [[nodiscard]] auto defaultOutputAudioDeviceName() const -> std::expected<std::string, std::string>;
 
-        m_audioDevices.swap(audioDevicesResult.value());
-        return {};
-    }
-
-    [[nodiscard]] auto defaultInputAudioDeviceName() const -> std::expected<std::string, std::string> {
-        return getDefaultAudioDevice(audio_device::AudioDeviceType::Input).transform([] (const auto&& deviceItr) {return (*deviceItr)->m_deviceName; });
-    }
-
-    [[nodiscard]] auto defaultOutputAudioDeviceName() const -> std::expected<std::string, std::string> {
-        return getDefaultAudioDevice(audio_device::AudioDeviceType::Output).transform([] (const auto&& deviceItr) {return (*deviceItr)->m_deviceName; });
-    }
-
-    [[nodiscard]] auto inputAudioDeviceSummaryList() -> std::expected<std::vector<audio_device::AudioDeviceSummary>, std::string> {
-        return audioDeviceSummaryList(audio_device::AudioDeviceType::Input);
-    }
-
-    [[nodiscard]] auto outputAudioDeviceSummaryList() -> std::expected<std::vector<audio_device::AudioDeviceSummary>, std::string> {
-        return audioDeviceSummaryList(audio_device::AudioDeviceType::Output);
-    }
+    [[nodiscard]] auto inputAudioDeviceSummaryList() -> std::expected<std::vector<audio_device::AudioDeviceSummary>, std::string>;
+    [[nodiscard]] auto outputAudioDeviceSummaryList() -> std::expected<std::vector<audio_device::AudioDeviceSummary>, std::string>;
 
     [[nodiscard]] auto startStream(std::optional<std::string> inputDeviceName,
                                    std::optional<std::string> outputDeviceName,
                                    std::optional<std::string> loopbackDeviceName,
                                    audio_stream_params::BufferLength_t bufferLength,
-                                   audio_device::SampleRate_t sampleRate) -> std::expected<void, std::string> {
-        if (not isSampleRateAllowed(sampleRate)) {
-            return std::unexpected { std::format("Sample rate {} is not allowed", sampleRate) };
-        }
-
-        if (not isBufferLengthAllowed(bufferLength)) {
-            return std::unexpected { std::format("Buffer length {} is not allowed", bufferLength) };
-        }
-
-        std::optional<audio_stream_params::DeviceSelection> input { std::nullopt };
-
-        if (inputDeviceName.has_value()) {
-            if (const auto deviceItrResult { getAudioDevice(inputDeviceName.value(), audio_device::AudioDeviceType::Input) }; deviceItrResult.has_value()) {
-                input.emplace(deviceItrResult.value()->get()->m_deviceId,
-                              deviceItrResult.value()->get()->m_nativeDataFormats[0].m_maxChannels);
-            } else {
-                return std::unexpected { std::format("Could not find input device {}: {}", inputDeviceName.value(), deviceItrResult.error()) };
-            }
-        }
-
-        std::optional<audio_stream_params::DeviceSelection> output { std::nullopt };
-
-        if (outputDeviceName.has_value()) {
-            if (const auto deviceItrResult { getAudioDevice(outputDeviceName.value(), audio_device::AudioDeviceType::Output) }; deviceItrResult.has_value()) {
-                output.emplace(deviceItrResult.value()->get()->m_deviceId,
-                               deviceItrResult.value()->get()->m_nativeDataFormats[0].m_maxChannels);
-            } else {
-                return std::unexpected { std::format("Could not find output device {}: {}", outputDeviceName.value(), deviceItrResult.error()) };
-            }
-        }
-
-        std::optional<audio_stream_params::DeviceSelection> loopback { std::nullopt };
-
-        if (loopbackDeviceName.has_value()) {
-            if (const auto deviceItrResult { getAudioDevice(loopbackDeviceName.value(), audio_device::AudioDeviceType::Output) }; deviceItrResult.has_value()) {
-                loopback.emplace(deviceItrResult.value()->get()->m_deviceId,
-                               deviceItrResult.value()->get()->m_nativeDataFormats[0].m_maxChannels);
-            } else {
-                return std::unexpected { std::format("Could not find loopback device {}: {}", loopbackDeviceName.value(), deviceItrResult.error()) };
-            }
-        }
-
-        auto streamParamsResult { audio_stream_params::makeAudioStreamParams(sampleRate, m_format, bufferLength, m_periodSize, input, output, loopback) };
-
-        if (not streamParamsResult.has_value()) {
-            return std::unexpected { std::format("Error creating stream params: {}", streamParamsResult.error()) };
-        }
-
-        const auto inputChannelCount { input.transform([] (const auto& selection) { return selection.m_channelCount; }) };
-        const auto outputChannelCount { [&] () -> std::optional<audio_device::ChannelCount_t> {
-            if (output.has_value()) return output->m_channelCount;
-            if (loopback.has_value()) return loopback->m_channelCount;
-            return std::nullopt;
-        } () };
-
-        std::unique_ptr<audio_buffer::AudioBuffer<float>> processedInputBuffer { nullptr };
-
-        if (inputChannelCount.has_value()) {
-            processedInputBuffer = audio_buffer::makeAudioBuffer<float>(inputChannelCount.value() * 2, bufferLength);
-        }
-
-        // Output audio is always stereo, so for each couple of channels we get 1 mixer channel
-        auto audioMixerResult { audio_mixer::makeAudioMixer<float>(inputChannelCount.has_value()? inputChannelCount.value() : 0, outputChannelCount.has_value()? outputChannelCount.value() / 2 : 0) };
-
-        if (not audioMixerResult.has_value()) {
-            return std::unexpected { std::format("Error creating audio mixer: {}", audioMixerResult.error()) };
-        }
-
-        std::unique_ptr<ring_audio_buffer::RingAudioBuffer<float>> inputRingAudioBuffer { nullptr };
-
-        if (inputChannelCount.has_value()) {
-            // 10 seconds of audio in ring buffer
-            if (auto inputRingAudioBufferResult = ring_audio_buffer::makeRingAudioBuffer<float>(inputChannelCount.value(), streamParamsResult.value()->m_sampleRate * 10); not inputRingAudioBufferResult.has_value()) {
-                return std::unexpected { std::format("Error creating input ring audio buffer: {}", inputRingAudioBufferResult.error()) };
-            } else {
-                inputRingAudioBuffer.swap(inputRingAudioBufferResult.value());
-            }
-        }
-
-        std::unique_ptr<ring_audio_buffer::RingAudioBuffer<float>> outputRingAudioBuffer { nullptr };
-
-        if (outputChannelCount.has_value()) {
-            // 10 seconds of audio in ring buffer
-            if (auto outputRingAudioBufferResult = ring_audio_buffer::makeRingAudioBuffer<float>(outputChannelCount.value(), streamParamsResult.value()->m_sampleRate * 10); not outputRingAudioBufferResult.has_value()) {
-                return std::unexpected { std::format("Error creating output ring audio buffer: {}", outputRingAudioBufferResult.error()) };
-            } else {
-               outputRingAudioBuffer.swap(outputRingAudioBufferResult.value());
-            }
-        }
-
-        std::vector<std::unique_ptr<audio_buffer::AudioStats<float>>> inputAudioStats {};
-        std::ranges::generate_n(std::back_inserter(inputAudioStats), inputChannelCount.value_or(0), [] () { return audio_buffer::makeAudioStats<float>(); });
-
-        std::vector<std::unique_ptr<audio_buffer::AudioStats<float>>> outputAudioStats {};
-        std::ranges::generate_n(std::back_inserter(outputAudioStats), outputChannelCount.value_or(0), [] () { return audio_buffer::makeAudioStats<float>(); });
-
-        if (not closeStream()) {
-            return std::unexpected { "Could not close running stream" };
-        }
-
-        // Audio thread stops here
-        m_audioStreamParams.swap(streamParamsResult.value());
-
-        if (processedInputBuffer) {
-            m_processedInputBuffer.swap(processedInputBuffer);
-            m_processedInputBuffer->clear();
-        }
-
-        m_audioMixer.swap(audioMixerResult.value());
-
-        m_inputRingAudioBuffer.swap(inputRingAudioBuffer);
-        m_outputRingAudioBuffer.swap(outputRingAudioBuffer);
-
-        m_inputAudioStats.swap(inputAudioStats);
-        m_outputAudioStats.swap(outputAudioStats);
-
-        if (not openStream()) {
-            return std::unexpected { "Could not open stream" };
-        }
-
-        return {};
-    }
+                                   audio_device::SampleRate_t sampleRate) -> std::expected<void, std::string>;
 
     [[nodiscard]] auto audioMixer() -> const std::unique_ptr<audio_mixer::AudioMixer<float>>& {
         return m_audioMixer;
     }
 
-    [[nodiscard]] auto startRecording(const audio_format::AudioFormat format, std::filesystem::path path) -> std::expected<void, std::string> {
-        if (not m_audioLibraryWrapper->isStreamRunning()) {
-            return std::unexpected { std::string { "Audio stream is not running" } };
-        }
-
-        if (m_isRecording.load(std::memory_order_acquire)) {
-            return std::unexpected { std::string { "Recording already started" } };
-        }
-
-        try {
-            const auto& inputParams { dynamic_cast<const audio_stream_params::InputAudioStreamParams&>(*m_audioStreamParams) };
-
-            std::vector<std::string> fileNames {};
-            std::vector<audio_mixer::ChannelRouting> routingList {};
-
-            for (audio_device::ChannelCount_t channel { 0 }; channel < inputParams.m_numberOfInputChannels; ++channel) {
-                fileNames.emplace_back(m_audioMixer->inputName(channel));
-                routingList.push_back(m_audioMixer->inputRouting(channel).first);
-            }
-
-            if (not m_inputRingAudioBuffer) {
-                return std::unexpected { "Input ring audio buffer is null" };
-            }
-
-            const auto isDefaultRouting { std::ranges::all_of(routingList, [] (const auto& routing) { return not routing.isMono() and not routing.isStereo(); }) };
-            if (not isDefaultRouting) {
-                if (auto inputAudioRecorder { audio_recorder::makeAudioRecorder(m_audioStreamParams->m_sampleRate, format, path, fileNames, routingList) }; not inputAudioRecorder.has_value()) {
-                    return std::unexpected { std::format("Could not create input audio recorder: {}", inputAudioRecorder.error()) };
-                } else {
-                    m_inputRecorder.swap(inputAudioRecorder.value());
-                }
-            }
-        } catch ([[maybe_unused]] const std::bad_cast&) {}
-
-        try {
-            const auto& outputParams { dynamic_cast<const audio_stream_params::OutputAudioStreamParams&>(*m_audioStreamParams) };
-
-            std::vector<std::string> fileNames {};
-            std::vector<audio_mixer::ChannelRouting> routingList {};
-
-            for (audio_device::ChannelCount_t channel { 0 }; channel < outputParams.m_numberOfOutputChannels / 2; ++channel) {
-                fileNames.emplace_back(m_audioMixer->outputName(channel));
-                routingList.push_back(m_audioMixer->outputRouting(channel));
-            }
-
-            if (not m_outputRingAudioBuffer) {
-                return std::unexpected { "Output ring audio buffer is null" };
-            }
-
-            const auto isDefaultRouting { std::ranges::all_of(routingList, [] (const auto& routing) { return not routing.isMono() and not routing.isStereo(); }) };
-            if (not isDefaultRouting) {
-                if (auto outputAudioRecorder { audio_recorder::makeAudioRecorder(m_audioStreamParams->m_sampleRate, format, path, fileNames, routingList) }; not outputAudioRecorder.has_value()) {
-                    return std::unexpected { std::format("Could not create output audio recorder: {}", outputAudioRecorder.error()) };
-                } else {
-                    m_outputRecorder.swap(outputAudioRecorder.value());
-                }
-            }
-        } catch ([[maybe_unused]] const std::bad_cast&) {}
-
-        try {
-            const auto& loopbackParams { dynamic_cast<const audio_stream_params::LoopbackAudioStreamParams&>(*m_audioStreamParams) };
-
-            std::vector<std::string> fileNames {};
-            std::vector<audio_mixer::ChannelRouting> routingList {};
-
-            for (audio_device::ChannelCount_t channel { 0 }; channel < loopbackParams.m_numberOfLoopbackChannels / 2; ++channel) {
-                fileNames.emplace_back(m_audioMixer->outputName(channel));
-                routingList.push_back(m_audioMixer->outputRouting(channel));
-            }
-
-            if (not m_outputRingAudioBuffer) {
-                return std::unexpected { "Output ring audio buffer is null" };
-            }
-
-            const auto isDefaultRouting { std::ranges::all_of(routingList, [] (const auto& routing) { return not routing.isMono() and not routing.isStereo(); }) };
-            if (not isDefaultRouting) {
-                if (auto outputAudioRecorder { audio_recorder::makeAudioRecorder(m_audioStreamParams->m_sampleRate, format, path, fileNames, routingList) }; not outputAudioRecorder.has_value()) {
-                    return std::unexpected { std::format("Could not create loopback audio recorder: {}", outputAudioRecorder.error()) };
-                } else {
-                    m_outputRecorder.swap(outputAudioRecorder.value());
-                }
-            }
-        } catch ([[maybe_unused]] const std::bad_cast&) {}
-
-        if (not m_inputRecorder and not m_outputRecorder) {
-            return std::unexpected { "No routing selected" };
-        }
-
-        m_isRecording.store(true, std::memory_order_release);
-        return {};
-    }
+    [[nodiscard]] auto startRecording(audio_format::AudioFormat format, std::filesystem::path path) -> std::expected<void, std::string>;
 
     auto stopRecording() -> void {
         m_isRecording.store(false, std::memory_order_release);
     }
 
-    auto finalizeRecording() -> void {
-        m_inputRecorder.reset();
-        m_outputRecorder.reset();
+    auto finalizeRecording() -> void;
 
-        if (m_inputRingAudioBuffer) m_inputRingAudioBuffer->reset();
-        if (m_outputRingAudioBuffer) m_outputRingAudioBuffer->reset();
-    }
-
-    [[nodiscard]] auto write() const -> bool {
-        if (not m_isRecording.load(std::memory_order_acquire)) {
-            return false;
-        }
-
-        if (m_inputRecorder) {
-            const auto audioBuffer { audio_buffer::makeAudioBuffer<float>(0, 0) };
-
-            if (not m_inputRingAudioBuffer->dequeue(*audioBuffer)) {
-                return false;
-            }
-
-            if (not m_inputRecorder->write(*audioBuffer)) {
-                return false;
-            }
-        }
-
-        if (m_outputRecorder) {
-             const auto audioBuffer { audio_buffer::makeAudioBuffer<float>(0, 0) };
-
-            if (not m_outputRingAudioBuffer->dequeue(*audioBuffer)) {
-                return false;
-            }
-
-            if (not m_outputRecorder->write(*audioBuffer)) {
-                return false;
-            }
-        }
-
-        return true;
-    }
+    [[nodiscard]] auto write() const -> bool;
 
     [[nodiscard]] static auto allowedSampleRates() -> const auto& { return m_allowedSampleRates; }
     [[nodiscard]] static auto allowedBufferLengths() -> const auto& { return m_allowedBufferLengths; }
 
-    auto inputLevels(std::span<float> inputLevels) const -> void {
-        std::ranges::transform(m_inputAudioStats, std::ranges::begin(inputLevels), [] (const auto& stats) { return stats->max(); });
-    }
-
-    auto outputLevels(std::span<float> outputLevels) const -> void {
-        std::ranges::transform(m_outputAudioStats, std::ranges::begin(outputLevels), [] (const auto& stats) { return stats->max(); });
-    }
+    auto inputLevels(std::span<float> inputLevels) const -> void;
+    auto outputLevels(std::span<float> outputLevels) const -> void;
 
 protected:
     [[nodiscard]] auto getAudioDevice(const std::string& deviceName, audio_device::AudioDeviceType deviceType) const
-                    -> std::expected<std::ranges::borrowed_iterator_t<const std::vector<std::unique_ptr<const audio_device::AudioDevice>> &>, std::string> {
-        auto deviceItr { std::ranges::find_if(m_audioDevices, [&deviceName, &deviceType] (const auto& currentDevice) { return currentDevice->m_deviceName == deviceName and currentDevice->m_type == deviceType; } ) };
+                    -> std::expected<std::ranges::borrowed_iterator_t<const std::vector<std::unique_ptr<const audio_device::AudioDevice>> &>, std::string>;
 
-        if (deviceItr == std::ranges::end(m_audioDevices)) {
-            return std::unexpected { "Audio device not found" };
-        }
+    [[nodiscard]] static auto isSampleRateAllowed(audio_device::SampleRate_t sampleRate) -> bool;
+    [[nodiscard]] static auto isBufferLengthAllowed(audio_stream_params::BufferLength_t bufferLength) -> bool;
 
-        return deviceItr;
-    }
+    [[nodiscard]] auto openStream() const -> bool;
+    [[nodiscard]] auto closeStream() const -> bool;
 
-    [[nodiscard]] static auto isSampleRateAllowed(const audio_device::SampleRate_t sampleRate) -> bool {
-        return std::ranges::find(m_allowedSampleRates, sampleRate) != std::ranges::end(m_allowedSampleRates);
-    }
+    [[nodiscard]] auto getDefaultAudioDevice(audio_device::AudioDeviceType deviceType) const
+                    -> std::expected<std::ranges::borrowed_iterator_t<const std::vector<std::unique_ptr<const audio_device::AudioDevice>> &>, std::string>;
 
-    [[nodiscard]] static auto isBufferLengthAllowed(const audio_stream_params::BufferLength_t bufferLength) -> bool {
-        return std::ranges::find(m_allowedBufferLengths, bufferLength) != std::ranges::end(m_allowedBufferLengths);
-    }
+    [[nodiscard]] auto audioDeviceSummaryList(audio_device::AudioDeviceType deviceType) -> std::expected<std::vector<audio_device::AudioDeviceSummary>, std::string>;
 
-    [[nodiscard]] auto openStream() const -> bool {
-        if (m_audioStreamParams == nullptr)
-            return false;
-
-        return m_audioLibraryWrapper->openStream(*m_audioStreamParams, m_audioCallback) && m_audioLibraryWrapper->startStream();
-    }
-
-    [[nodiscard]] auto closeStream() const -> bool {
-        if (not m_audioLibraryWrapper->isStreamOpen()) {
-            return true;
-        }
-
-        if (not m_audioLibraryWrapper->isStreamRunning()) {
-            m_audioLibraryWrapper->closeStream();
-            return true;
-        }
-
-        if (not m_audioLibraryWrapper->stopStream()) {
-            return false;
-        }
-
-        m_audioLibraryWrapper->closeStream();
-        return true;
-    }
-
-    [[nodiscard]] auto getDefaultAudioDevice(const audio_device::AudioDeviceType deviceType) const -> std::expected<std::ranges::borrowed_iterator_t<const std::vector<std::unique_ptr<const audio_device::AudioDevice>> &>, std::string> {
-        auto deviceItr { std::ranges::find_if(m_audioDevices, [&deviceType] (const auto& currentDevice) { return currentDevice->m_type == deviceType && currentDevice->m_isDefault; }) };
-
-        if (deviceItr == std::ranges::end(m_audioDevices)) {
-            return std::unexpected { "Audio device not found" };
-        }
-
-        return deviceItr;
-    }
-
-    [[nodiscard]] auto audioDeviceSummaryList(const audio_device::AudioDeviceType deviceType) -> std::expected<std::vector<audio_device::AudioDeviceSummary>, std::string> {
-        if (auto probeResult { probeDevices() }; not probeResult.has_value()) {
-            return std::unexpected { std::move(probeResult).error() };
-        }
-
-        std::vector<audio_device::AudioDeviceSummary> audioDeviceSummaryList {};
-        for (auto& device : m_audioDevices
-                            | std::views::filter([&deviceType] (const auto& audioDevice) { return audioDevice->m_type == deviceType; })) {
-            audioDeviceSummaryList.emplace_back(device->m_deviceName, device->m_nativeDataFormats[0].m_maxChannels);
-        }
-
-        return audioDeviceSummaryList;
-    }
-
-    auto processInput(const audio_buffer::AudioBuffer<float>& inputBuffer, const audio_buffer::AudioBuffer<float>& outputBuffer) const -> void {
-        const auto inputChannels { inputBuffer.numberOfChannels() };
-        for (auto channel { audio_device::ChannelCount_t { 0 } };  channel < inputChannels; ++channel) {
-            const auto [inputRouting, outputRouting] { m_audioMixer->inputRouting(channel) };
-
-            if (not inputRouting.isMono() and not inputRouting.isStereo())
-                continue;
-
-            auto inputBufferView { inputBuffer.view(inputRouting.m_leftMono.value(), inputRouting.m_right) };
-            auto processedInputBufferView { m_processedInputBuffer->view(channel * 2,
-                inputRouting.isStereo() ? std::optional { channel * 2 + 1 } : std::nullopt) };
-
-            m_audioMixer->processInput(inputBufferView, processedInputBufferView, channel);
-
-            if (not outputRouting.isMono() and not outputRouting.isStereo())
-                continue;
-
-            auto outputBufferView { outputBuffer.view(outputRouting.m_leftMono.value(), outputRouting.m_right) };
-            m_audioMixer->mix(processedInputBufferView, outputBufferView);
-        }
-    }
-
-    auto processOutput(audio_buffer::AudioBuffer<float>& outputBuffer) const -> void {
-        const auto outputChannels { outputBuffer.numberOfChannels() };
-        // Output mixer is always stereo
-        for (auto channel { audio_device::ChannelCount_t { 0 } }; channel < outputChannels / 2; ++channel) {
-            const auto outputRouting { m_audioMixer->outputRouting(channel) };
-
-            if (not outputRouting.isMono() and not outputRouting.isStereo()) {
-                // A mixer channel is stereo, so if we don't have a routing for a stereo channel,
-                // we clear channel and next channel
-                outputBuffer.clear(channel * 2);
-                outputBuffer.clear((channel * 2) + 1);
-                continue;
-            }
-
-            // Input routing is same as output for output channels, checking output.
-            auto outputBufferView { outputBuffer.view(outputRouting.m_leftMono.value(), outputRouting.m_right) };
-
-            // In place processing
-            m_audioMixer->processOutput(outputBufferView,
-                outputBufferView,
-                channel);
-        }
-    }
-
-    auto process(const audio_buffer::AudioBuffer<float>& inputBuffer, audio_buffer::AudioBuffer<float>& outputBuffer) const -> void {
-        if (m_processedInputBuffer)
-            m_processedInputBuffer->clear();
-
-        const auto isRecording { m_isRecording.load(std::memory_order_acquire) };
-
-        if (m_inputRingAudioBuffer && isRecording) {
-            std::ignore = m_inputRingAudioBuffer->enqueue(inputBuffer);
-        }
-
-        for (auto channel { audio_device::ChannelCount_t { 0 } }; channel < inputBuffer.numberOfChannels(); ++channel) {
-            const auto [min, max, rms] { inputBuffer.computeStats(channel) };
-
-            auto& stats { *m_inputAudioStats[channel] };
-
-            stats.min(min);
-            stats.max(max);
-            stats.rms(rms);
-        }
-
-        processInput(inputBuffer, outputBuffer);
-        processOutput(outputBuffer);
-
-        if (m_outputRingAudioBuffer && isRecording) {
-            std::ignore = m_outputRingAudioBuffer->enqueue(outputBuffer);
-        }
-
-        for (auto channel { audio_device::ChannelCount_t { 0 } }; channel < outputBuffer.numberOfChannels(); ++channel) {
-            const auto [min, max, rms] { outputBuffer.computeStats(channel) };
-
-            auto& stats { *m_outputAudioStats[channel] };
-
-            stats.min(min);
-            stats.max(max);
-            stats.rms(rms);
-        }
-    }
+    auto processInput(const audio_buffer::AudioBuffer<float>& inputBuffer, const audio_buffer::AudioBuffer<float>& outputBuffer) const -> void;
+    auto processOutput(audio_buffer::AudioBuffer<float>& outputBuffer) const -> void;
+    auto process(const audio_buffer::AudioBuffer<float>& inputBuffer, audio_buffer::AudioBuffer<float>& outputBuffer) const -> void;
 
     static constexpr std::array<audio_device::SampleRate_t, 2> m_allowedSampleRates { 44100, 48000 };
     static constexpr auto m_format { audio_format::AudioFormat::Float32 };
@@ -536,17 +103,43 @@ protected:
     std::unique_ptr<audio_library_wrapper::AudioLibraryWrapper> m_audioLibraryWrapper;
 
 private:
+    // Returns std::nullopt when deviceName holds no value. label is only used in the error message.
+    [[nodiscard]] auto getDeviceSelection(const std::optional<std::string>& deviceName,
+                                          audio_device::AudioDeviceType deviceType,
+                                          std::string_view label) const
+                    -> std::expected<std::optional<audio_stream_params::DeviceSelection>, std::string>;
+
+    // Builds the processing state for the new stream, then stops the running stream, swaps the state in and opens the new one
+    [[nodiscard]] auto replaceStream(std::unique_ptr<audio_stream_params::AudioStreamParams> streamParams,
+                                     std::optional<audio_device::ChannelCount_t> inputChannelCount,
+                                     std::optional<audio_device::ChannelCount_t> outputChannelCount,
+                                     audio_stream_params::BufferLength_t bufferLength) -> std::expected<void, std::string>;
+
+    // Returns a null buffer when channelCount is empty
+    [[nodiscard]] static auto createRingAudioBuffer(std::optional<audio_device::ChannelCount_t> channelCount,
+                                                    const audio_stream_params::AudioStreamParams& streamParams,
+                                                    std::string_view label)
+                    -> std::expected<std::unique_ptr<ring_audio_buffer::RingAudioBuffer<float>>, std::string>;
+
+    [[nodiscard]] auto createInputRecorder(audio_device::ChannelCount_t channelCount,
+                                           audio_format::AudioFormat format,
+                                           const std::filesystem::path& path) -> std::expected<void, std::string>;
+
+    // Used for both output and loopback streams; channelCount is the number of device channels
+    [[nodiscard]] auto createOutputRecorder(audio_device::ChannelCount_t channelCount,
+                                            audio_format::AudioFormat format,
+                                            const std::filesystem::path& path,
+                                            std::string_view label) -> std::expected<void, std::string>;
+
+    static auto updateAudioStats(const audio_buffer::AudioBuffer<float>& buffer,
+                                 const std::vector<std::unique_ptr<audio_buffer::AudioStats<float>>>& audioStats) -> void;
+
     audio_library_wrapper::LogCallback m_logCallback;
     audio_library_wrapper::AudioCallback m_audioCallback;
 };
 
-export template <class T>
-[[nodiscard]] auto makeAudioEngine(const audio_library_wrapper::LogCallback& logCallback, audio_driver::AudioDriver audioDriver = audio_driver::availableAudioDrivers[0]) -> std::expected<std::unique_ptr<AudioEngine<T>>, std::string> {
-    try {
-        return std::make_unique<AudioEngine<T>>(logCallback, audioDriver);
-    } catch (const std::exception& e) {
-        return std::unexpected { std::string { e.what() } };
-    }
-}
+export [[nodiscard]] auto makeAudioEngine(const audio_library_wrapper::LogCallback& logCallback,
+                                          audio_driver::AudioDriver audioDriver = audio_driver::availableAudioDrivers[0])
+                    -> std::expected<std::unique_ptr<AudioEngine>, std::string>;
 
 }

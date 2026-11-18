@@ -15,7 +15,7 @@ AudioEngineManager::AudioEngineManager(ats::AsyncTaskScheduler& scheduler, Logge
     m_logCallback { [this] (std::optional<logger::LogEntry> entry) { m_loggerManager.enqueueLogEntry(std::move(entry)); } },
     m_audioEngine { nullptr },
     m_writeTaskDependency { std::nullopt } {
-    if (auto audioEngineResult { ae::makeAudioEngine<ae::audio_library_wrapper::MiniaudioLibraryWrapper>(m_logCallback) }; not audioEngineResult.has_value()) {
+    if (auto audioEngineResult { ae::makeAudioEngine(m_logCallback) }; not audioEngineResult.has_value()) {
         throw std::runtime_error { std::string { std::format("Error creating audio engine: {}", audioEngineResult.error()) } };
     } else {
         m_audioEngine.swap(audioEngineResult.value());
@@ -27,12 +27,12 @@ AudioEngineManager::~AudioEngineManager() {
     waitForAllTasks();
 }
 
-auto AudioEngineManager::allowedSampleRates() -> decltype(ae::AudioEngine<ae::audio_library_wrapper::MiniaudioLibraryWrapper>::allowedSampleRates())& {
-    return ae::AudioEngine<ae::audio_library_wrapper::MiniaudioLibraryWrapper>::allowedSampleRates();
+auto AudioEngineManager::allowedSampleRates() -> decltype(ae::AudioEngine::allowedSampleRates())& {
+    return ae::AudioEngine::allowedSampleRates();
 }
 
-auto AudioEngineManager::allowedBufferLengths() -> decltype(ae::AudioEngine<ae::audio_library_wrapper::MiniaudioLibraryWrapper>::allowedBufferLengths())& {
-    return ae::AudioEngine<ae::audio_library_wrapper::MiniaudioLibraryWrapper>::allowedBufferLengths();
+auto AudioEngineManager::allowedBufferLengths() -> decltype(ae::AudioEngine::allowedBufferLengths())& {
+    return ae::AudioEngine::allowedBufferLengths();
 }
 
 auto AudioEngineManager::audioDriver() -> ats::Result<std::expected<ae::audio_driver::AudioDriver, std::string>> {
@@ -139,7 +139,7 @@ auto AudioEngineManager::startStream(std::optional<std::string> inputDeviceName,
     return result;
 }
 
-ats::ResumableTask<void> write(std::chrono::milliseconds triggerInterval, std::mutex& mutex, const std::unique_ptr<ae::AudioEngine<ae::audio_library_wrapper::MiniaudioLibraryWrapper>>& audioEngine) {
+ats::ResumableTask<void> write(std::chrono::milliseconds triggerInterval, std::mutex& mutex, const std::unique_ptr<ae::AudioEngine>& audioEngine) {
     std::unique_lock writeLock { mutex, std::defer_lock };
     auto writeResult { false };
     auto triggerTime { std::chrono::steady_clock::now() + triggerInterval };

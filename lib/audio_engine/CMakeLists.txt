@@ -36,6 +36,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(miniaudio)
 
 add_library(audio-engine
+        audio_engine.cpp
         audio_driver.cpp
         audio_device.cpp
         audio_stream_params.cpp

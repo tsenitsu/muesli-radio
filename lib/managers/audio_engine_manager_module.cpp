@@ -17,8 +17,8 @@ public:
     AudioEngineManager(ats::AsyncTaskScheduler& scheduler, LoggerManager& loggerManager);
     ~AudioEngineManager() override;
 
-    [[nodiscard]] static auto allowedSampleRates() -> decltype(ae::AudioEngine<ae::audio_library_wrapper::MiniaudioLibraryWrapper>::allowedSampleRates())&;
-    [[nodiscard]] static auto allowedBufferLengths() -> decltype(ae::AudioEngine<ae::audio_library_wrapper::MiniaudioLibraryWrapper>::allowedBufferLengths())&;
+    [[nodiscard]] static auto allowedSampleRates() -> decltype(ae::AudioEngine::allowedSampleRates())&;
+    [[nodiscard]] static auto allowedBufferLengths() -> decltype(ae::AudioEngine::allowedBufferLengths())&;
 
     [[nodiscard]] auto audioDriver(ae::audio_driver::AudioDriver newAudioDriver) -> ats::Result<std::expected<void, std::string>>;
     [[nodiscard]] auto audioDriver() -> ats::Result<std::expected<ae::audio_driver::AudioDriver, std::string>>;
@@ -67,7 +67,7 @@ private:
     std::mutex m_taskMutex;
     LoggerManager& m_loggerManager;
     ae::audio_library_wrapper::LogCallback m_logCallback;
-    std::unique_ptr<ae::AudioEngine<ae::audio_library_wrapper::MiniaudioLibraryWrapper>> m_audioEngine;
+    std::unique_ptr<ae::AudioEngine> m_audioEngine;
     std::optional<ats::Dependency> m_writeTaskDependency;
 };
 
