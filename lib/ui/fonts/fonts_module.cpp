@@ -4,7 +4,7 @@ export module fonts;
 
 namespace ui::fonts {
 
-constexpr char jetbrainsMonoRegularName[] = "Lato_Regular_ttf";
+constexpr char jetbrainsMonoRegularName[] = "Jetbrains_Mono_Regular_ttf";
 
 constexpr unsigned char jetbrainsMonoRegularData[] = {
   0x00, 0x01, 0x00, 0x00, 0x00, 0x11, 0x01, 0x00, 0x00, 0x04, 0x00, 0x10,
