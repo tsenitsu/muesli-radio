@@ -13,7 +13,7 @@ function(target_custom_compiler_options TARGET)
         target_compile_options(${TARGET} PRIVATE
                 -Werror -Wall -Wextra -pedantic
                 -Wshadow -Wconversion -Wsign-conversion
-                -Wcast-align -Wcast-qual -Wundef -Wformat=2
+                -Wcast-align -Wcast-qual -Wformat=2
                 -Wdouble-promotion -Wnull-dereference
                 -Wimplicit-fallthrough -Wvla)
 

@@ -32,7 +32,7 @@ cmake --build build\debug
 ```
 
 ### Linux (GCC)
-Tested with GCC 16 on RHEL and GCC 15 on Ubuntu (WSL).
+GCC 16 or newer is required.
 ```
 cmake -DCMAKE_TOOLCHAIN_FILE=<path to vcpkg.cmake> -DVCPKG_TARGET_TRIPLET=x64-linux -DCMAKE_BUILD_TYPE=Debug -G Ninja -B ./build/debug
 cmake --build build/debug

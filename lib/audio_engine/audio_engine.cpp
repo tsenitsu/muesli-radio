@@ -123,7 +123,7 @@ auto AudioEngine::startRecording(const audio_format::AudioFormat format, std::fi
         const auto& inputParams { dynamic_cast<const audio_stream_params::InputAudioStreamParams&>(*m_audioStreamParams) };
 
         if (auto result { createInputRecorder(inputParams.m_numberOfInputChannels, format, path) }; not result.has_value()) {
-            return result;
+            return std::unexpected { std::move(result).error() };
         }
     } catch ([[maybe_unused]] const std::bad_cast&) {}
 
@@ -131,7 +131,7 @@ auto AudioEngine::startRecording(const audio_format::AudioFormat format, std::fi
         const auto& outputParams { dynamic_cast<const audio_stream_params::OutputAudioStreamParams&>(*m_audioStreamParams) };
 
         if (auto result { createOutputRecorder(outputParams.m_numberOfOutputChannels, format, path, "output") }; not result.has_value()) {
-            return result;
+            return std::unexpected { std::move(result).error() };
         }
     } catch ([[maybe_unused]] const std::bad_cast&) {}
 
@@ -139,7 +139,7 @@ auto AudioEngine::startRecording(const audio_format::AudioFormat format, std::fi
         const auto& loopbackParams { dynamic_cast<const audio_stream_params::LoopbackAudioStreamParams&>(*m_audioStreamParams) };
 
         if (auto result { createOutputRecorder(loopbackParams.m_numberOfLoopbackChannels, format, path, "loopback") }; not result.has_value()) {
-            return result;
+            return std::unexpected { std::move(result).error() };
         }
     } catch ([[maybe_unused]] const std::bad_cast&) {}
 
