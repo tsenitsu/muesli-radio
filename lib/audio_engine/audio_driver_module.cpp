@@ -11,6 +11,7 @@ export enum class AudioDriver {
     Wasapi,
     DirectSound,
     WinMM,
+    Asio,
 #endif
 #ifdef __APPLE__
     CoreAudio,
@@ -33,6 +34,7 @@ export constexpr std::array availableAudioDrivers {
     AudioDriver::Wasapi,
     AudioDriver::DirectSound,
     AudioDriver::WinMM,
+    AudioDriver::Asio,
 #endif
 #ifdef __APPLE__
     AudioDriver::CoreAudio,

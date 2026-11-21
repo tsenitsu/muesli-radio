@@ -3,6 +3,7 @@
 
 import std;
 import audio_engine;
+import test_helpers;
 
 using namespace audio_engine;
 
@@ -52,16 +53,16 @@ protected:
     AudioEngineMock m_audioEngineMock;
 };
 
-auto makeInputDevice() -> auto { return audio_device::makeAudioDevice(audio_device::DeviceId { 1 }, "input", false,
+auto makeInputDevice() -> auto { return audio_device::makeAudioDevice(test_helpers::makeDeviceId(1), "input", false,
                     audio_device::AudioDeviceType::Input, std::vector { audio_device::NativeDataFormat { 0, audio_format::AudioFormat::Float32, 2, 2, 44100, 44100 } }).value(); }
 
-auto makeOutputDevice() -> auto { return audio_device::makeAudioDevice(audio_device::DeviceId { 2 }, "output", false,
+auto makeOutputDevice() -> auto { return audio_device::makeAudioDevice(test_helpers::makeDeviceId(2), "output", false,
                     audio_device::AudioDeviceType::Output, std::vector { audio_device::NativeDataFormat { 0, audio_format::AudioFormat::Float32, 2, 2, 44100, 44100 } }).value(); }
 
-auto makeDefaultInputDevice() -> auto { return audio_device::makeAudioDevice(audio_device::DeviceId { 1 }, "defaultInput", true,
+auto makeDefaultInputDevice() -> auto { return audio_device::makeAudioDevice(test_helpers::makeDeviceId(1), "defaultInput", true,
                     audio_device::AudioDeviceType::Input, std::vector { audio_device::NativeDataFormat { 0, audio_format::AudioFormat::Float32, 2, 2, 44100, 44100 } }).value(); }
 
-auto makeDefaultOutputDevice() -> auto { return audio_device::makeAudioDevice(audio_device::DeviceId { 2 }, "defaultOutput", true,
+auto makeDefaultOutputDevice() -> auto { return audio_device::makeAudioDevice(test_helpers::makeDeviceId(2), "defaultOutput", true,
                     audio_device::AudioDeviceType::Output, std::vector { audio_device::NativeDataFormat { 0, audio_format::AudioFormat::Float32, 2, 2, 44100, 44100 } }).value(); }
 
 TEST_F(AudioEngineTest, getDefaultAudioDevice) {
@@ -223,7 +224,7 @@ TEST_F(AudioEngineTest, openStream) {
         .WillOnce(testing::Return(true));
 
     m_audioEngineMock.m_audioStreamParams = audio_stream_params::makeAudioStreamParams(44100, audio_format::AudioFormat::Float32,
-        2048, 3, audio_stream_params::DeviceSelection { audio_device::DeviceId { 1 }, 2 }).value();
+        2048, 3, audio_stream_params::DeviceSelection { test_helpers::makeDeviceId(1), 2 }).value();
 
     EXPECT_EQ(m_audioEngineMock.openStream(), true);
     EXPECT_EQ(m_audioEngineMock.openStream(), false);

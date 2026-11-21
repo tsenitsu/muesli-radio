@@ -47,7 +47,9 @@ public:
     auto items(std::vector<MenuItem>&& items) -> void;
     auto selectedId(unsigned int id) -> void;
     auto enabled(bool shouldEnable) -> void;
-    auto onSelection(std::function<void(unsigned int, std::string_view)> onSelection) -> void;
+    // Like ToggleButton's onToggle, onSelection can refuse a selection by returning false:
+    // the popup closes and the dropdown keeps its current selection
+    auto onSelection(std::function<bool(unsigned int, std::string_view)> onSelection) -> void;
     auto onMenuOpen(std::function<std::vector<MenuItem>()> onMenuOpen) -> void;
 
     auto popupSelected(unsigned int id, std::string_view label) -> void;
@@ -62,7 +64,7 @@ public:
 private:
     std::string m_text;
     std::string m_defaultText;
-    std::function<void(unsigned int, std::string_view)> m_onSelection;
+    std::function<bool(unsigned int, std::string_view)> m_onSelection;
     std::function<std::vector<MenuItem>()> m_onMenuOpen;
     std::vector<MenuItem> m_items;
     unsigned int m_selectedId;

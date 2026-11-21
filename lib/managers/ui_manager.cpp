@@ -105,16 +105,20 @@ auto UiManager::setupDriverDropdown(std::pair<int, std::string> defaultDriver) -
         [this](const unsigned int id, std::string_view) {
             if (auto taskResult { m_audioEngineManager->audioDriver(audio_engine::audio_driver::availableAudioDrivers[id]).get() };
                 not taskResult.has_value()) {
+                // The engine keeps its previous driver, and so does the dropdown
                 m_mainWindow->postToast(taskResult.error());
-                return;
+                return false;
             }
             m_mainWindow->resetAudioDevicesControls();
             m_inputLevels.clear();
             m_outputLevels.clear();
             m_inputAudioDeviceSummaryList.clear();
             m_outputAudioDeviceSummaryList.clear();
+            m_selectedSampleRateIndex = std::nullopt;
             m_selectedInputDeviceIndex = std::nullopt;
             m_selectedOutputDeviceIndex = std::nullopt;
+            m_selectedBufferLengthIndex = std::nullopt;
+            return true;
         },
         std::move(defaultDriver));
 }
@@ -129,6 +133,7 @@ auto UiManager::setupSampleRateDropdown() -> void {
         },
         [this](const unsigned int id, std::string_view) {
             m_selectedSampleRateIndex = id;
+            return true;
         });
 }
 
@@ -155,9 +160,15 @@ auto UiManager::setupDeviceDropdowns() -> void {
             );
         },
         [this](const unsigned int id, std::string_view) {
-            m_selectedInputDeviceIndex = (m_inputAudioDeviceSummaryList[id].m_channels == 0)
+            const auto selection { (m_inputAudioDeviceSummaryList[id].m_channels == 0)
                 ? std::nullopt
-                : std::optional { id };
+                : std::optional { id } };
+
+            if (not canPairDevices(selection, m_selectedOutputDeviceIndex))
+                return false;
+
+            m_selectedInputDeviceIndex = selection;
+            return true;
         });
 
     m_mainWindow->configureOutputDeviceDropdown(
@@ -177,9 +188,15 @@ auto UiManager::setupDeviceDropdowns() -> void {
             );
         },
         [this](const unsigned int id, std::string_view) {
-            m_selectedOutputDeviceIndex = (m_outputAudioDeviceSummaryList[id].m_channels == 0)
+            const auto selection { (m_outputAudioDeviceSummaryList[id].m_channels == 0)
                 ? std::nullopt
-                : std::optional { id };
+                : std::optional { id } };
+
+            if (not canPairDevices(m_selectedInputDeviceIndex, selection))
+                return false;
+
+            m_selectedOutputDeviceIndex = selection;
+            return true;
         });
 }
 
@@ -193,6 +210,7 @@ auto UiManager::setupBufferLengthDropdown() -> void {
         },
         [this](const unsigned int id, std::string_view) {
             m_selectedBufferLengthIndex = id;
+            return true;
         });
 }
 
@@ -286,6 +304,28 @@ auto UiManager::setupOpenDevicesButton() -> void {
     });
 }
 
+// Returns false, after telling the user, when the input and output devices can not be used together
+auto UiManager::canPairDevices([[maybe_unused]] const std::optional<unsigned int> inputIndex,
+                               [[maybe_unused]] const std::optional<unsigned int> outputIndex) const -> bool {
+#ifdef _WIN32
+    if (not inputIndex.has_value() or not outputIndex.has_value())
+        return true;
+
+    if (m_inputAudioDeviceSummaryList[inputIndex.value()].m_deviceName == m_outputAudioDeviceSummaryList[outputIndex.value()].m_deviceName)
+        return true;
+
+    // A process can load only one ASIO driver, so a stream with both input and output must use the same ASIO device
+    if (const auto currentAudioDriver { m_audioEngineManager->audioDriver().get() }; not currentAudioDriver.has_value()) {
+        m_mainWindow->postToast(currentAudioDriver.error());
+    } else if (currentAudioDriver.value() == audio_engine::audio_driver::AudioDriver::Asio) {
+        m_mainWindow->postToast("ASIO only supports the same device in duplex mode");
+        return false;
+    }
+#endif
+
+    return true;
+}
+
 auto UiManager::addInputRows() -> void {
     for (std::size_t i { 0 }; i < m_inputLevels.size(); ++i) {
         m_mainWindow->addInputRow(
@@ -307,16 +347,18 @@ auto UiManager::addInputRows() -> void {
                 m_audioEngineManager->inputChannelRouting(
                     std::make_pair(*m_inputRoutingList[id], toRouting),
                     static_cast<audio_engine::audio_device::ChannelCount_t>(i));
+                return true;
             },
             [this] { return makeRoutingItems(m_outputRoutingList); },
             [this, i](unsigned int id, std::string_view) {
                 m_inputRowStates[i].toRoutingIndex = id;
-                if (not m_inputRowStates[i].fromRoutingIndex.has_value()) return; // from not yet selected
+                if (not m_inputRowStates[i].fromRoutingIndex.has_value()) return true; // from not yet selected
                 m_audioEngineManager->inputChannelRouting(
                     std::make_pair(
                         *m_inputRoutingList[m_inputRowStates[i].fromRoutingIndex.value()],
                         *m_outputRoutingList[id]),
                     static_cast<audio_engine::audio_device::ChannelCount_t>(i));
+                return true;
             });
     }
 }
@@ -336,6 +378,7 @@ auto UiManager::addOutputRows() const -> void {
                 m_audioEngineManager->outputChannelRouting(
                     *m_outputRoutingList[id],
                     static_cast<audio_engine::audio_device::ChannelCount_t>(i));
+                return true;
             });
     }
 }
@@ -352,6 +395,7 @@ auto UiManager::setupSampleFormatDropdown() -> void {
         },
         [this](const unsigned int id, std::string_view) {
             m_selectedSampleFormatIndex = id;
+            return true;
         });
 }
 

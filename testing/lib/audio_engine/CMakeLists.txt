@@ -13,6 +13,14 @@ add_executable(
   audio_recorder_tests.cpp
 )
 
+target_sources(
+  audio-engine-unit-tests
+  PRIVATE
+  FILE_SET cxx_modules
+  TYPE CXX_MODULES
+  FILES test_helpers_module.cpp
+)
+
 target_custom_compiler_options(audio-engine-unit-tests)
 
 target_link_libraries(

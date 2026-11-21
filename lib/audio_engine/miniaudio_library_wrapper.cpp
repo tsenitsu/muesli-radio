@@ -131,6 +131,19 @@ auto MiniaudioLibraryWrapper::openStream(const audio_stream_params::AudioStreamP
     ma_device_id outputDeviceId {};
     ma_device_id loopbackDeviceId {};
 
+    // Device ids produced by another audio library can not be used here
+    const auto assignDeviceId { [this](const audio_device::DeviceId& deviceId, const std::string_view role, ma_device_id& destination) -> bool {
+        const auto idResult { deviceId.id<ma_device_id>() };
+
+        if (not idResult.has_value()) {
+            m_logCallback(logger::makeLogEntry(logger::LogLevel::Error, "Miniaudio", std::format("{} device: {}", role, idResult.error())));
+            return false;
+        }
+
+        destination = idResult.value();
+        return true;
+    } };
+
     ma_device_config deviceConfig {};
     // At this point we do not know the device type: it does not matter because
     // we can override it later on
@@ -153,7 +166,9 @@ auto MiniaudioLibraryWrapper::openStream(const audio_stream_params::AudioStreamP
 
         m_inputAudioBuffer = audio_buffer::makeAudioBuffer<float>(inputParams.m_numberOfInputChannels, inputParams.m_bufferLength);
 
-        inputDeviceId = inputParams.m_inputDeviceId.id();
+        if (not assignDeviceId(inputParams.m_inputDeviceId, "Input", inputDeviceId))
+            return false;
+
         deviceConfig.capture.pDeviceID  = &inputDeviceId;
 
         deviceConfig.capture.format     = audio_format::toMaFormat(inputParams.m_format).value();
@@ -167,7 +182,9 @@ auto MiniaudioLibraryWrapper::openStream(const audio_stream_params::AudioStreamP
 
         m_outputAudioBuffer = audio_buffer::makeAudioBuffer<float>(outputParams.m_numberOfOutputChannels, outputParams.m_bufferLength);
 
-        outputDeviceId = outputParams.m_outputDeviceId.id();
+        if (not assignDeviceId(outputParams.m_outputDeviceId, "Output", outputDeviceId))
+            return false;
+
         deviceConfig.playback.pDeviceID = &outputDeviceId;
 
         deviceConfig.playback.format    = audio_format::toMaFormat(outputParams.m_format).value();
@@ -181,7 +198,9 @@ auto MiniaudioLibraryWrapper::openStream(const audio_stream_params::AudioStreamP
 
         m_inputAudioBuffer = audio_buffer::makeAudioBuffer<float>(loopbackParams.m_numberOfLoopbackChannels, loopbackParams.m_bufferLength);
 
-        loopbackDeviceId = loopbackParams.m_loopbackDeviceId.id();
+        if (not assignDeviceId(loopbackParams.m_loopbackDeviceId, "Loopback", loopbackDeviceId))
+            return false;
+
         deviceConfig.capture.pDeviceID = &loopbackDeviceId;
 
         deviceConfig.capture.format    = audio_format::toMaFormat(loopbackParams.m_format).value();

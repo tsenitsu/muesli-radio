@@ -5,6 +5,12 @@ module audio_driver;
 namespace audio_engine::audio_driver {
 
 auto toString(const AudioDriver driver) -> std::expected<std::string, std::string> {
+#ifdef _WIN32
+    // ASIO is provided by RtAudio: it has no miniaudio backend
+    if (driver == AudioDriver::Asio)
+        return std::string { "ASIO" };
+#endif
+
     return toBackend(driver)
             .and_then([] (ma_device_backend_vtable* backend) -> std::expected<std::string, std::string> {
                 ma_device_backend_info info;
@@ -24,6 +30,7 @@ auto toBackend(const AudioDriver driver) -> std::expected<ma_device_backend_vtab
         case AudioDriver::Wasapi:       return ma_device_backend_wasapi;
         case AudioDriver::DirectSound:  return ma_device_backend_dsound;
         case AudioDriver::WinMM:        return ma_device_backend_winmm;
+        case AudioDriver::Asio:         return std::unexpected { "ASIO is not a miniaudio backend" };
 #endif
 #ifdef __APPLE__
         case AudioDriver::CoreAudio:    return ma_device_backend_coreaudio;
@@ -60,6 +67,7 @@ auto toAudioDriver(const ma_device_backend_vtable* backend) -> std::expected<Aud
 }
 
 auto isLoopbackSupported(const AudioDriver driver) -> bool {
+    // ASIO has no miniaudio backend, so it reports false like any driver without loopback
     return toBackend(driver)
         .and_then([](ma_device_backend_vtable* backend) -> std::expected<bool, std::string> {
             ma_device_backend_info info;

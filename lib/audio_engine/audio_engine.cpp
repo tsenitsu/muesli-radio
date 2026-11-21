@@ -2,6 +2,22 @@ module audio_engine;
 
 namespace audio_engine {
 
+namespace {
+
+// ASIO is provided by RtAudio, every other driver by miniaudio
+auto makeDriverLibraryWrapper(const audio_library_wrapper::LogCallback& logCallback, const audio_driver::AudioDriver audioDriver)
+                -> std::expected<std::unique_ptr<audio_library_wrapper::AudioLibraryWrapper>, std::string> {
+#ifdef _WIN32
+    if (audioDriver == audio_driver::AudioDriver::Asio) {
+        return audio_library_wrapper::makeAudioLibraryWrapper<audio_library_wrapper::RtAudioLibraryWrapper>(logCallback, audioDriver);
+    }
+#endif
+
+    return audio_library_wrapper::makeAudioLibraryWrapper<audio_library_wrapper::MiniaudioLibraryWrapper>(logCallback, audioDriver);
+}
+
+}
+
 AudioEngine::AudioEngine(const audio_library_wrapper::LogCallback& logCallback,
                          std::unique_ptr<audio_library_wrapper::AudioLibraryWrapper> audioLibraryWrapper)
  :  m_audioMixer { nullptr },
@@ -22,7 +38,7 @@ AudioEngine::AudioEngine(const audio_library_wrapper::LogCallback& logCallback,
     } } {}
 
 auto AudioEngine::audioDriver(const audio_driver::AudioDriver newAudioDriver) -> std::expected<void, std::string> {
-    auto audioLibraryWrapper { audio_library_wrapper::makeAudioLibraryWrapper<audio_library_wrapper::MiniaudioLibraryWrapper>(m_logCallback, newAudioDriver) };
+    auto audioLibraryWrapper { makeDriverLibraryWrapper(m_logCallback, newAudioDriver) };
 
     if (not audioLibraryWrapper.has_value()) {
         return std::unexpected { audioLibraryWrapper.error() };
@@ -517,7 +533,7 @@ auto AudioEngine::updateAudioStats(const audio_buffer::AudioBuffer<float>& buffe
 auto makeAudioEngine(const audio_library_wrapper::LogCallback& logCallback, const audio_driver::AudioDriver audioDriver)
                 -> std::expected<std::unique_ptr<AudioEngine>, std::string> {
     try {
-        auto audioLibraryWrapper { audio_library_wrapper::makeAudioLibraryWrapper<audio_library_wrapper::MiniaudioLibraryWrapper>(logCallback, audioDriver) };
+        auto audioLibraryWrapper { makeDriverLibraryWrapper(logCallback, audioDriver) };
 
         if (not audioLibraryWrapper.has_value()) {
             return std::unexpected { std::format("Error setting audio driver: {}", audioLibraryWrapper.error()) };

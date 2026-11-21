@@ -3,6 +3,7 @@
 import std;
 import audio_stream_params;
 import audio_device;
+import test_helpers;
 
 using namespace audio_engine;
 
@@ -11,7 +12,7 @@ TEST(AudioStreamParams, createInputAudioStreamParams) {
     constexpr auto format { audio_format::AudioFormat::Float32 };
     constexpr audio_stream_params::BufferLength_t bufferLength { 2048 };
     constexpr audio_stream_params::PeriodSize_t periodSize { 3 };
-    const audio_device::DeviceId inputDeviceId { 2 };
+    const auto inputDeviceId { test_helpers::makeDeviceId(2) };
     constexpr audio_device::ChannelCount_t numberOfInputChannels { 3 };
 
     const auto audioStreamParams { audio_stream_params::makeAudioStreamParams(sampleRate, format, bufferLength, periodSize,
@@ -47,7 +48,7 @@ TEST(AudioStreamParams, createOutputAudioStreamParams) {
     constexpr auto format { audio_format::AudioFormat::Float32 };
     constexpr audio_stream_params::BufferLength_t bufferLength { 2048 };
     constexpr audio_stream_params::PeriodSize_t periodSize { 3 };
-    const audio_device::DeviceId outputDeviceId { 3 };
+    const auto outputDeviceId { test_helpers::makeDeviceId(3) };
     constexpr audio_device::ChannelCount_t numberOfOutputChannels { 4 };
 
     const auto audioStreamParams { audio_stream_params::makeAudioStreamParams(sampleRate, format, bufferLength, periodSize,
@@ -83,9 +84,9 @@ TEST(AudioStreamParams, createDuplexAudioStreamParams) {
     constexpr auto format { audio_format::AudioFormat::Float32 };
     constexpr audio_stream_params::BufferLength_t bufferLength { 2048 };
     constexpr audio_stream_params::PeriodSize_t periodSize { 3 };
-    const audio_device::DeviceId inputDeviceId { 2 };
+    const auto inputDeviceId { test_helpers::makeDeviceId(2) };
     constexpr audio_device::ChannelCount_t numberOfInputChannels { 3 };
-    const audio_device::DeviceId outputDeviceId { 3 };
+    const auto outputDeviceId { test_helpers::makeDeviceId(3) };
     constexpr audio_device::ChannelCount_t numberOfOutputChannels { 4 };
 
     const auto audioStreamParams { audio_stream_params::makeAudioStreamParams(sampleRate, format, bufferLength, periodSize,
@@ -124,7 +125,7 @@ TEST(AudioStreamParams, createLoopbackAudioStreamParams) {
     constexpr auto format { audio_format::AudioFormat::Float32 };
     constexpr audio_stream_params::BufferLength_t bufferLength { 2048 };
     constexpr audio_stream_params::PeriodSize_t periodSize { 3 };
-    const audio_device::DeviceId loopbackDeviceId { 5 };
+    const auto loopbackDeviceId { test_helpers::makeDeviceId(5) };
     constexpr audio_device::ChannelCount_t numberOfLoopbackChannels { 2 };
 
     const auto audioStreamParams { audio_stream_params::makeAudioStreamParams(sampleRate, format, bufferLength, periodSize,
@@ -192,13 +193,13 @@ TEST(AudioStreamParams, invalidAudioStreamParams) {
     ASSERT_FALSE(audioStreamParams.has_value());
     EXPECT_EQ(audioStreamParams, std::unexpected { std::string { "No devices provided" } } );
 
-    input = audio_stream_params::DeviceSelection { audio_device::DeviceId { 1 }, 0 };
+    input = audio_stream_params::DeviceSelection { test_helpers::makeDeviceId(1), 0 };
 
     audioStreamParams = audio_stream_params::makeAudioStreamParams(sampleRate, format, bufferLength, periodSize, input);
     ASSERT_FALSE(audioStreamParams.has_value());
     EXPECT_EQ(audioStreamParams, std::unexpected { std::string { "Invalid number of input channels" } } );
 
-    input = audio_stream_params::DeviceSelection { audio_device::DeviceId { 1 }, 1 };
+    input = audio_stream_params::DeviceSelection { test_helpers::makeDeviceId(1), 1 };
 
     audioStreamParams = audio_stream_params::makeAudioStreamParams(sampleRate, format, bufferLength, periodSize, input);
     ASSERT_TRUE(audioStreamParams.has_value());
@@ -209,13 +210,13 @@ TEST(AudioStreamParams, invalidAudioStreamParams) {
     ASSERT_FALSE(audioStreamParams.has_value());
     EXPECT_EQ(audioStreamParams, std::unexpected { std::string { "No devices provided" } } );
 
-    output = audio_stream_params::DeviceSelection { audio_device::DeviceId { 1 }, 0 };
+    output = audio_stream_params::DeviceSelection { test_helpers::makeDeviceId(1), 0 };
 
     audioStreamParams = audio_stream_params::makeAudioStreamParams(sampleRate, format, bufferLength, periodSize, std::nullopt, output);
     ASSERT_FALSE(audioStreamParams.has_value());
     EXPECT_EQ(audioStreamParams, std::unexpected { std::string { "Invalid number of output channels" } } );
 
-    output = audio_stream_params::DeviceSelection { audio_device::DeviceId { 1 }, 1 };
+    output = audio_stream_params::DeviceSelection { test_helpers::makeDeviceId(1), 1 };
 
     audioStreamParams = audio_stream_params::makeAudioStreamParams(sampleRate, format, bufferLength, periodSize, std::nullopt, output);
     ASSERT_TRUE(audioStreamParams.has_value());
@@ -233,8 +234,8 @@ TEST(AudioStreamParams, invalidDuplexChannels) {
     constexpr audio_stream_params::BufferLength_t bufferLength { 2048 };
     constexpr audio_stream_params::PeriodSize_t periodSize { 3 };
 
-    const audio_stream_params::DeviceSelection validSelection { audio_device::DeviceId { 1 }, 2 };
-    const audio_stream_params::DeviceSelection zeroChannelsSelection { audio_device::DeviceId { 1 }, 0 };
+    const audio_stream_params::DeviceSelection validSelection { test_helpers::makeDeviceId(1), 2 };
+    const audio_stream_params::DeviceSelection zeroChannelsSelection { test_helpers::makeDeviceId(1), 0 };
 
     auto audioStreamParams { audio_stream_params::makeAudioStreamParams(sampleRate, format, bufferLength, periodSize,
         zeroChannelsSelection, validSelection) };
@@ -257,8 +258,8 @@ TEST(AudioStreamParams, invalidLoopbackAudioStreamParams) {
     constexpr audio_stream_params::BufferLength_t bufferLength { 2048 };
     constexpr audio_stream_params::PeriodSize_t periodSize { 3 };
 
-    const audio_stream_params::DeviceSelection validSelection { audio_device::DeviceId { 1 }, 2 };
-    const audio_stream_params::DeviceSelection zeroChannelsSelection { audio_device::DeviceId { 1 }, 0 };
+    const audio_stream_params::DeviceSelection validSelection { test_helpers::makeDeviceId(1), 2 };
+    const audio_stream_params::DeviceSelection zeroChannelsSelection { test_helpers::makeDeviceId(1), 0 };
 
     // Zero loopback channels.
     auto audioStreamParams { audio_stream_params::makeAudioStreamParams(sampleRate, format, bufferLength, periodSize,
@@ -308,7 +309,7 @@ TEST(AudioStreamParams, loopbackAudioStreamParamsToString) {
     constexpr audio_stream_params::PeriodSize_t periodSize { 3 };
 
     const auto audioStreamParams { audio_stream_params::makeAudioStreamParams(sampleRate, format, bufferLength, periodSize,
-        std::nullopt, std::nullopt, audio_stream_params::DeviceSelection { audio_device::DeviceId { 5 }, 2 }) };
+        std::nullopt, std::nullopt, audio_stream_params::DeviceSelection { test_helpers::makeDeviceId(5), 2 }) };
 
     ASSERT_TRUE(audioStreamParams.has_value());
 

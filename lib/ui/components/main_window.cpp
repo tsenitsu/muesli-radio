@@ -23,13 +23,13 @@ class MainWindow::MainWindowImplementation final {
 public:
     MainWindowImplementation();
 
-    auto configureAudioDriverDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection, std::pair<unsigned int, std::string> defaultValue) -> void;
-    auto configureSampleRateDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) -> void;
-    auto configureInputDeviceDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) -> void;
-    auto configureOutputDeviceDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) -> void;
-    auto configureBufferLengthDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) -> void;
+    auto configureAudioDriverDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<bool(unsigned int, std::string_view)> onSelection, std::pair<unsigned int, std::string> defaultValue) -> void;
+    auto configureSampleRateDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<bool(unsigned int, std::string_view)> onSelection) -> void;
+    auto configureInputDeviceDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<bool(unsigned int, std::string_view)> onSelection) -> void;
+    auto configureOutputDeviceDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<bool(unsigned int, std::string_view)> onSelection) -> void;
+    auto configureBufferLengthDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<bool(unsigned int, std::string_view)> onSelection) -> void;
     auto configureOpenDevicesButton(std::function<void()> onClick) -> void;
-    auto configureSampleFormatDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) -> void;
+    auto configureSampleFormatDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<bool(unsigned int, std::string_view)> onSelection) -> void;
     auto configureRecordingToggle(std::function<bool(bool)> onToggle) -> void;
     auto configureSelectFolderButton(std::function<void()> onClick) -> void;
     auto updateOutputFolderPath(std::string_view path) -> void;
@@ -38,10 +38,10 @@ public:
 
     auto resetAudioDevicesControls() -> void;
 
-    auto addInputRow(std::string_view inputName, std::function<void(std::string)> onTextChange, std::function<std::vector<MenuItem>()> onInputMenuOpen, std::function<void(unsigned int, std::string_view)> onInputSelection,
-        std::function<std::vector<MenuItem>()> onOutputMenuOpen, std::function<void(unsigned int, std::string_view)> onOutputSelection) -> void;
+    auto addInputRow(std::string_view inputName, std::function<void(std::string)> onTextChange, std::function<std::vector<MenuItem>()> onInputMenuOpen, std::function<bool(unsigned int, std::string_view)> onInputSelection,
+        std::function<std::vector<MenuItem>()> onOutputMenuOpen, std::function<bool(unsigned int, std::string_view)> onOutputSelection) -> void;
     auto addOutputRow(std::string_view outputName, std::function<void(std::string)> onTextChange,
-        std::function<std::vector<MenuItem>()> onOutputMenuOpen, std::function<void(unsigned int, std::string_view)> onOutputSelection) -> void;
+        std::function<std::vector<MenuItem>()> onOutputMenuOpen, std::function<bool(unsigned int, std::string_view)> onOutputSelection) -> void;
 
     auto enableControls(bool enabled, bool allowRecordingButton = false) -> void;
     auto postToast(std::string_view message) -> void;
@@ -107,23 +107,23 @@ auto MainWindow::run() const -> void {
     m_mainWindowImplementation->m_applicationWindow.runEventLoop();
 }
 
-auto MainWindow::configureAudioDriverDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection, std::pair<unsigned int, std::string> defaultValue) const -> void {
+auto MainWindow::configureAudioDriverDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<bool(unsigned int, std::string_view)> onSelection, std::pair<unsigned int, std::string> defaultValue) const -> void {
     m_mainWindowImplementation->configureAudioDriverDropdown(std::move(onMenuOpen), std::move(onSelection), std::move(defaultValue));
 }
 
-auto MainWindow::configureSampleRateDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) const -> void {
+auto MainWindow::configureSampleRateDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<bool(unsigned int, std::string_view)> onSelection) const -> void {
     m_mainWindowImplementation->configureSampleRateDropdown(std::move(onMenuOpen), std::move(onSelection));
 }
 
-auto MainWindow::configureInputDeviceDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) const -> void {
+auto MainWindow::configureInputDeviceDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<bool(unsigned int, std::string_view)> onSelection) const -> void {
     m_mainWindowImplementation->configureInputDeviceDropdown(std::move(onMenuOpen), std::move(onSelection));
 }
 
-auto MainWindow::configureOutputDeviceDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) const -> void {
+auto MainWindow::configureOutputDeviceDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<bool(unsigned int, std::string_view)> onSelection) const -> void {
     m_mainWindowImplementation->configureOutputDeviceDropdown(std::move(onMenuOpen), std::move(onSelection));
 }
 
-auto MainWindow::configureBufferLengthDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) const -> void {
+auto MainWindow::configureBufferLengthDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<bool(unsigned int, std::string_view)> onSelection) const -> void {
     m_mainWindowImplementation->configureBufferLengthDropdown(std::move(onMenuOpen), std::move(onSelection));
 }
 
@@ -131,7 +131,7 @@ auto MainWindow::configureOpenDevicesButton(std::function<void()> onClick) const
     m_mainWindowImplementation->configureOpenDevicesButton(std::move(onClick));
 }
 
-auto MainWindow::configureSampleFormatDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) const -> void {
+auto MainWindow::configureSampleFormatDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<bool(unsigned int, std::string_view)> onSelection) const -> void {
     m_mainWindowImplementation->configureSampleFormatDropdown(std::move(onMenuOpen), std::move(onSelection));
 }
 
@@ -160,15 +160,15 @@ auto MainWindow::resetAudioDevicesControls() const -> void {
 }
 
 auto MainWindow::addInputRow(std::string_view inputName, std::function<void(std::string)> onTextChange,
-        std::function<std::vector<MenuItem>()> onInputMenuOpen, std::function<void(unsigned int, std::string_view)> onInputSelection,
-        std::function<std::vector<MenuItem>()> onOutputMenuOpen, std::function<void(unsigned int, std::string_view)> onOutputSelection) const -> void {
+        std::function<std::vector<MenuItem>()> onInputMenuOpen, std::function<bool(unsigned int, std::string_view)> onInputSelection,
+        std::function<std::vector<MenuItem>()> onOutputMenuOpen, std::function<bool(unsigned int, std::string_view)> onOutputSelection) const -> void {
 
     m_mainWindowImplementation->addInputRow(inputName, std::move(onTextChange), std::move(onInputMenuOpen), std::move(onInputSelection),
     std::move(onOutputMenuOpen), std::move(onOutputSelection));
 }
 
     auto MainWindow::addOutputRow(std::string_view outputName, std::function<void(std::string)> onTextChange,
-                std::function<std::vector<MenuItem>()> onOutputMenuOpen, std::function<void(unsigned int, std::string_view)> onOutputSelection) const -> void {
+                std::function<std::vector<MenuItem>()> onOutputMenuOpen, std::function<bool(unsigned int, std::string_view)> onOutputSelection) const -> void {
     m_mainWindowImplementation->addOutputRow(outputName, std::move(onTextChange), std::move(onOutputMenuOpen), std::move(onOutputSelection));
 }
 
@@ -278,7 +278,7 @@ MainWindow::MainWindowImplementation::MainWindowImplementation()
     };
 }
 
-auto MainWindow::MainWindowImplementation::configureAudioDriverDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection, const std::pair<unsigned int, std::string> defaultValue) -> void {
+auto MainWindow::MainWindowImplementation::configureAudioDriverDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<bool(unsigned int, std::string_view)> onSelection, const std::pair<unsigned int, std::string> defaultValue) -> void {
     m_driverDropdown.onMenuOpen(std::move(onMenuOpen));
     m_driverDropdown.onSelection(std::move(onSelection));
 
@@ -286,22 +286,22 @@ auto MainWindow::MainWindowImplementation::configureAudioDriverDropdown(std::fun
     m_driverDropdown.text(defaultValue.second);
 }
 
-auto MainWindow::MainWindowImplementation::configureSampleRateDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) -> void {
+auto MainWindow::MainWindowImplementation::configureSampleRateDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<bool(unsigned int, std::string_view)> onSelection) -> void {
     m_sampleRateDropdown.onMenuOpen(std::move(onMenuOpen));
     m_sampleRateDropdown.onSelection(std::move(onSelection));
 }
 
-auto MainWindow::MainWindowImplementation::configureInputDeviceDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) -> void {
+auto MainWindow::MainWindowImplementation::configureInputDeviceDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<bool(unsigned int, std::string_view)> onSelection) -> void {
     m_inputDeviceDropdown.onMenuOpen(std::move(onMenuOpen));
     m_inputDeviceDropdown.onSelection(std::move(onSelection));
 }
 
-auto MainWindow::MainWindowImplementation::configureOutputDeviceDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) -> void {
+auto MainWindow::MainWindowImplementation::configureOutputDeviceDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<bool(unsigned int, std::string_view)> onSelection) -> void {
     m_outputDeviceDropdown.onMenuOpen(std::move(onMenuOpen));
     m_outputDeviceDropdown.onSelection(std::move(onSelection));
 }
 
-auto MainWindow::MainWindowImplementation::configureBufferLengthDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) -> void {
+auto MainWindow::MainWindowImplementation::configureBufferLengthDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<bool(unsigned int, std::string_view)> onSelection) -> void {
     m_bufferLengthDropdown.onMenuOpen(std::move(onMenuOpen));
     m_bufferLengthDropdown.onSelection(std::move(onSelection));
 }
@@ -310,7 +310,7 @@ auto MainWindow::MainWindowImplementation::configureOpenDevicesButton(std::funct
     m_openDeviceButton.onClick(std::move(onClick));
 }
 
-auto MainWindow::MainWindowImplementation::configureSampleFormatDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) -> void {
+auto MainWindow::MainWindowImplementation::configureSampleFormatDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<bool(unsigned int, std::string_view)> onSelection) -> void {
     m_sampleFormatDropdown.onMenuOpen(std::move(onMenuOpen));
     m_sampleFormatDropdown.onSelection(std::move(onSelection));
 }
@@ -348,16 +348,18 @@ auto MainWindow::MainWindowImplementation::configureLoopbackToggle(std::function
 }
 
 auto MainWindow::MainWindowImplementation::resetAudioDevicesControls() -> void {
+    m_sampleRateDropdown.reset();
     m_inputDeviceDropdown.reset();
     m_outputDeviceDropdown.reset();
+    m_bufferLengthDropdown.reset();
     clearInputs();
     clearOutputs();
     clearMeters();
 }
 
 auto MainWindow::MainWindowImplementation::addInputRow(std::string_view inputName, std::function<void(std::string)> onTextChange,
-    std::function<std::vector<MenuItem>()> onInputMenuOpen, std::function<void(unsigned int, std::string_view)> onInputSelection,
-    std::function<std::vector<MenuItem>()> onOutputMenuOpen, std::function<void(unsigned int, std::string_view)> onOutputSelection) -> void {
+    std::function<std::vector<MenuItem>()> onInputMenuOpen, std::function<bool(unsigned int, std::string_view)> onInputSelection,
+    std::function<std::vector<MenuItem>()> onOutputMenuOpen, std::function<bool(unsigned int, std::string_view)> onOutputSelection) -> void {
     auto name { std::make_unique<visage::TextEditor>() };
     name->setFont(visage::Font(25.0f * 0.5f, fonts::jetbrainsMonoRegular));
     name->setText(inputName.data());
@@ -392,7 +394,7 @@ auto MainWindow::MainWindowImplementation::addInputRow(std::string_view inputNam
 }
 
 auto MainWindow::MainWindowImplementation::addOutputRow(std::string_view outputName, std::function<void(std::string)> onTextChange,
-                std::function<std::vector<MenuItem>()> onOutputMenuOpen, std::function<void(unsigned int, std::string_view)> onOutputSelection) -> void {
+                std::function<std::vector<MenuItem>()> onOutputMenuOpen, std::function<bool(unsigned int, std::string_view)> onOutputSelection) -> void {
     auto name { std::make_unique<visage::TextEditor>() };
     name->setFont(visage::Font(25.0f * 0.5f, fonts::jetbrainsMonoRegular));
     name->setText(outputName.data());

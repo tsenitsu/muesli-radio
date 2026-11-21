@@ -31,6 +31,7 @@ private:
     auto setupLoopbackToggle() -> void;
     auto addInputRows() -> void;
     auto addOutputRows() const -> void;
+    [[nodiscard]] auto canPairDevices(std::optional<unsigned int> inputIndex, std::optional<unsigned int> outputIndex) const -> bool;
 
     AudioEngineManager* m_audioEngineManager;
     std::vector<audio_engine::audio_device::AudioDeviceSummary> m_inputAudioDeviceSummaryList;

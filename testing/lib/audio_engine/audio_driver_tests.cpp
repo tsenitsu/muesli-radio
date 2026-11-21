@@ -10,6 +10,7 @@ const std::map<audio_driver::AudioDriver, std::string_view> audioDriverToString 
         { audio_driver::AudioDriver::Wasapi,       "WASAPI"      },
         { audio_driver::AudioDriver::DirectSound,  "DirectSound" },
         { audio_driver::AudioDriver::WinMM,        "WinMM"       },
+        { audio_driver::AudioDriver::Asio,         "ASIO"        },
 #endif
 #ifdef __APPLE__
     { audio_driver::AudioDriver::CoreAudio,    "Core Audio"  },
@@ -33,6 +34,7 @@ TEST(AudioDriverTests, toString) {
 TEST(AudioDriverTests, isLoopbackSupported) {
 #ifdef _WIN32
     EXPECT_TRUE(audio_driver::isLoopbackSupported(audio_driver::AudioDriver::Wasapi));
+    EXPECT_FALSE(audio_driver::isLoopbackSupported(audio_driver::AudioDriver::Asio));
 #endif
 #ifdef __APPLE__
     EXPECT_FALSE(audio_driver::isLoopbackSupported(audio_driver::AudioDriver::CoreAudio));

@@ -8,6 +8,12 @@ namespace ats = async_task_scheduler;
 
 namespace managers {
 
+#ifdef _WIN32
+// The engine is created on the thread that constructs the manager, so it must not start on ASIO
+static_assert(ae::audio_driver::availableAudioDrivers[0] != ae::audio_driver::AudioDriver::Asio,
+              "The first available audio driver must not be ASIO");
+#endif
+
 AudioEngineManager::AudioEngineManager(ats::AsyncTaskScheduler& scheduler, LoggerManager& loggerManager)
   : TaskManager { scheduler },
     m_taskMutex {},
@@ -25,6 +31,21 @@ AudioEngineManager::AudioEngineManager(ats::AsyncTaskScheduler& scheduler, Logge
 AudioEngineManager::~AudioEngineManager() {
     stopRecording();
     waitForAllTasks();
+
+#ifdef _WIN32
+    // An ASIO driver must be released on the thread that loaded it, not on the one destroying the manager
+    if (isAsioInvolved()) {
+        auto releaseEngineTask { ats::makeAtomicTask([this] () {
+            std::lock_guard lock { m_taskMutex };
+            m_audioEngine.reset();
+        }) };
+
+        const auto releaseEngineTaskDependency { releaseEngineTask->dependency() };
+        enqueueTasks(kAsioThreadId, std::move(releaseEngineTask));
+
+        releaseEngineTaskDependency.wait();
+    }
+#endif
 }
 
 auto AudioEngineManager::allowedSampleRates() -> decltype(ae::AudioEngine::allowedSampleRates())& {
@@ -42,7 +63,7 @@ auto AudioEngineManager::audioDriver() -> ats::Result<std::expected<ae::audio_dr
     }) };
 
     auto result { task->result() };
-    enqueueTasks(std::move(task));
+    enqueueEngineTask(std::move(task));
 
     return result;
 }
@@ -50,13 +71,29 @@ auto AudioEngineManager::audioDriver() -> ats::Result<std::expected<ae::audio_dr
 auto AudioEngineManager::audioDriver(const ae::audio_driver::AudioDriver newAudioDriver) -> ats::Result<std::expected<void, std::string>> {
     stopRecording();
 
+#ifdef _WIN32
+    // Engine tasks enqueued for the previous driver may still be pending on other threads:
+    // none of them may run once the engine holds an ASIO driver
+    waitForAllTasks();
+    m_isAsioRequested.store(newAudioDriver == ae::audio_driver::AudioDriver::Asio, std::memory_order_release);
+#endif
+
     auto task { ats::makeAtomicTask([this, newAudioDriver] () {
         std::lock_guard lock { m_taskMutex };
-        return m_audioEngine->audioDriver(newAudioDriver);
+        auto switchResult { m_audioEngine->audioDriver(newAudioDriver) };
+
+#ifdef _WIN32
+        // On failure the engine keeps its previous driver
+        const auto currentAudioDriver { m_audioEngine->audioDriver() };
+        m_isAsioActive.store(currentAudioDriver.has_value() and currentAudioDriver.value() == ae::audio_driver::AudioDriver::Asio,
+                             std::memory_order_release);
+#endif
+
+        return switchResult;
     }) };
 
     auto result { task->result() };
-    enqueueTasks(std::move(task));
+    enqueueEngineTask(std::move(task));
 
     return result;
 }
@@ -68,7 +105,7 @@ auto AudioEngineManager::probeDevices() -> ats::Result<std::expected<void, std::
     }) };
 
     auto result { task->result() };
-    enqueueTasks(std::move(task));
+    enqueueEngineTask(std::move(task));
 
     return result;
 }
@@ -80,7 +117,7 @@ auto AudioEngineManager::defaultInputAudioDeviceName() -> ats::Result<std::expec
     }) };
 
     auto result { task->result() };
-    enqueueTasks(std::move(task));
+    enqueueEngineTask(std::move(task));
 
     return result;
 }
@@ -92,7 +129,7 @@ auto AudioEngineManager::defaultOutputAudioDeviceName() -> ats::Result<std::expe
     }) };
 
     auto result { task->result() };
-    enqueueTasks(std::move(task));
+    enqueueEngineTask(std::move(task));
 
     return result;
 }
@@ -104,7 +141,7 @@ auto AudioEngineManager::inputAudioDeviceSummaryList() -> ats::Result<std::expec
     }) };
 
     auto result { task->result() };
-    enqueueTasks(std::move(task));
+    enqueueEngineTask(std::move(task));
 
     return result;
 }
@@ -116,7 +153,7 @@ auto AudioEngineManager::outputAudioDeviceSummaryList() -> ats::Result<std::expe
     }) };
 
     auto result { task->result() };
-    enqueueTasks(std::move(task));
+    enqueueEngineTask(std::move(task));
 
     return result;
 }
@@ -134,7 +171,7 @@ auto AudioEngineManager::startStream(std::optional<std::string> inputDeviceName,
     }) };
 
     auto result { task->result() };
-    enqueueTasks(std::move(task));
+    enqueueEngineTask(std::move(task));
 
     return result;
 }
@@ -170,12 +207,13 @@ auto AudioEngineManager::startRecording(const ae::audio_format::AudioFormat form
     }) };
 
     const auto startRecordingResult { startRecordingTask->result() };
-    enqueueTasks(std::move(startRecordingTask));
+    enqueueEngineTask(std::move(startRecordingTask));
 
     if (auto taskResult { startRecordingResult.get() }; not taskResult.has_value()) {
         return taskResult;
     }
 
+    // The write task never touches the audio library, so it can run on any thread
     std::unique_ptr<ats::AsyncTask> writeTask { ats::makeResumableTask<void>(write(std::chrono::milliseconds { 500 }, m_taskMutex, m_audioEngine)) };
     m_writeTaskDependency = writeTask->dependency();
 
@@ -191,7 +229,7 @@ auto AudioEngineManager::stopRecording() -> void {
     }) };
 
     const auto stopRecordingTaskDependency { stopRecordingTask->dependency() };
-    enqueueTasks(std::move(stopRecordingTask));
+    enqueueEngineTask(std::move(stopRecordingTask));
 
     stopRecordingTaskDependency.wait();
 
@@ -207,7 +245,7 @@ auto AudioEngineManager::stopRecording() -> void {
     }) };
 
     const auto finalizeRecordingTaskDependency { finalizeRecordingTask->dependency() };
-    enqueueTasks(std::move(finalizeRecordingTask));
+    enqueueEngineTask(std::move(finalizeRecordingTask));
 
     finalizeRecordingTaskDependency.wait();
 }
@@ -219,7 +257,7 @@ auto AudioEngineManager::inputChannelName(std::string channelName, const ae::aud
     }) };
 
     const auto inputChannelNameResult { inputNameTask->result() };
-    enqueueTasks(std::move(inputNameTask));
+    enqueueEngineTask(std::move(inputNameTask));
 
     return inputChannelNameResult;
 }
@@ -231,7 +269,7 @@ auto AudioEngineManager::inputChannelName(const ae::audio_device::ChannelCount_t
     }) };
 
     const auto inputNameResult { inputNameTask->result() };
-    enqueueTasks(std::move(inputNameTask));
+    enqueueEngineTask(std::move(inputNameTask));
 
     return inputNameResult;
 }
@@ -243,7 +281,7 @@ auto AudioEngineManager::outputChannelName(std::string channelName, const ae::au
     }) };
 
     const auto outputNameResult { outputNameTask->result() };
-    enqueueTasks(std::move(outputNameTask));
+    enqueueEngineTask(std::move(outputNameTask));
 
     return outputNameResult;
 }
@@ -255,7 +293,7 @@ auto AudioEngineManager::outputChannelName(const ae::audio_device::ChannelCount_
     }) };
 
     const auto outputNameResult { outputNameTask->result() };
-    enqueueTasks(std::move(outputNameTask));
+    enqueueEngineTask(std::move(outputNameTask));
 
     return outputNameResult;
 }
@@ -301,6 +339,23 @@ auto AudioEngineManager::inputLevels(std::span<float> inputLevels) const -> void
 auto AudioEngineManager::outputLevels(std::span<float> outputLevels) const -> void {
     m_audioEngine->outputLevels(outputLevels);
 }
+
+auto AudioEngineManager::enqueueEngineTask(std::unique_ptr<ats::AsyncTask> task) -> void {
+#ifdef _WIN32
+    if (isAsioInvolved()) {
+        enqueueTasks(kAsioThreadId, std::move(task));
+        return;
+    }
+#endif
+
+    enqueueTasks(std::move(task));
+}
+
+#ifdef _WIN32
+auto AudioEngineManager::isAsioInvolved() const -> bool {
+    return m_isAsioRequested.load(std::memory_order_acquire) or m_isAsioActive.load(std::memory_order_acquire);
+}
+#endif
 
 auto makeAudioEngineManager(ats::AsyncTaskScheduler& scheduler,
                             LoggerManager& loggerManager) -> std::expected<std::unique_ptr<AudioEngineManager>, std::string> {

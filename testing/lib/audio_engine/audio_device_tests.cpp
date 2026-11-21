@@ -1,12 +1,14 @@
 #include <gtest/gtest.h>
+#include <miniaudio.h>
 
 import std;
 import audio_device;
+import test_helpers;
 
 using namespace audio_engine;
 
 TEST(AudioDevice, makeAudioDevice) {
-    const auto id { audio_device::DeviceId { 123 } };
+    const auto id { test_helpers::makeDeviceId(123) };
     auto name { std::string { "Test device" } };
     constexpr auto isDefault { true };
     constexpr auto flags { audio_device::Flags_t { 0 } };
@@ -37,4 +39,30 @@ TEST(AudioDevice, makeAudioDevice) {
 
     ASSERT_FALSE(deviceWithNoFormats.has_value());
     EXPECT_EQ(deviceWithNoFormats, std::unexpected { std::string { "No native formats found" } });
+}
+
+TEST(AudioDevice, deviceId) {
+    const auto nullBackendId { test_helpers::makeDeviceId(123) };
+
+    EXPECT_EQ(nullBackendId, test_helpers::makeDeviceId(123));
+    EXPECT_NE(nullBackendId, test_helpers::makeDeviceId(124));
+
+    const auto miniaudioId { nullBackendId.id<ma_device_id>() };
+    ASSERT_TRUE(miniaudioId.has_value());
+    EXPECT_EQ(miniaudioId.value().nullbackend, 123);
+
+#ifdef _WIN32
+    const auto rtAudioId { audio_device::DeviceId { audio_device::RtAudioDeviceId { 123 } } };
+
+    EXPECT_EQ(rtAudioId, audio_device::DeviceId { audio_device::RtAudioDeviceId { 123 } });
+    // Same number, different audio libraries: not the same device
+    EXPECT_NE(rtAudioId, nullBackendId);
+
+    const auto rtAudioValue { rtAudioId.id<audio_device::RtAudioDeviceId>() };
+    ASSERT_TRUE(rtAudioValue.has_value());
+    EXPECT_EQ(rtAudioValue.value().m_value, 123u);
+
+    EXPECT_FALSE(rtAudioId.id<ma_device_id>().has_value());
+    EXPECT_FALSE(nullBackendId.id<audio_device::RtAudioDeviceId>().has_value());
+#endif
 }

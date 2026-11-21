@@ -13,13 +13,13 @@ public:
 
     auto run() const -> void;
 
-    auto configureAudioDriverDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection, std::pair<unsigned int, std::string> defaultValue) const -> void;
-    auto configureSampleRateDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) const -> void;
-    auto configureInputDeviceDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) const -> void;
-    auto configureOutputDeviceDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) const -> void;
-    auto configureBufferLengthDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) const -> void;
+    auto configureAudioDriverDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<bool(unsigned int, std::string_view)> onSelection, std::pair<unsigned int, std::string> defaultValue) const -> void;
+    auto configureSampleRateDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<bool(unsigned int, std::string_view)> onSelection) const -> void;
+    auto configureInputDeviceDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<bool(unsigned int, std::string_view)> onSelection) const -> void;
+    auto configureOutputDeviceDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<bool(unsigned int, std::string_view)> onSelection) const -> void;
+    auto configureBufferLengthDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<bool(unsigned int, std::string_view)> onSelection) const -> void;
     auto configureOpenDevicesButton(std::function<void()> onClick) const -> void;
-    auto configureSampleFormatDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<void(unsigned int, std::string_view)> onSelection) const -> void;
+    auto configureSampleFormatDropdown(std::function<std::vector<MenuItem>()> onMenuOpen, std::function<bool(unsigned int, std::string_view)> onSelection) const -> void;
     auto configureRecordingToggle(std::function<bool(bool)> onToggle) const -> void;
     auto configureSelectFolderButton(std::function<void()> onClick) const -> void;
     auto updateOutputFolderPath(std::string_view path) const -> void;
@@ -29,10 +29,10 @@ public:
     auto resetAudioDevicesControls() const -> void;
 
     auto addInputRow(std::string_view inputName, std::function<void(std::string)> onTextChange,
-        std::function<std::vector<MenuItem>()> onInputMenuOpen, std::function<void(unsigned int, std::string_view)> onInputSelection,
-        std::function<std::vector<MenuItem>()> onOutputMenuOpen, std::function<void(unsigned int, std::string_view)> onOutputSelection) const -> void;
+        std::function<std::vector<MenuItem>()> onInputMenuOpen, std::function<bool(unsigned int, std::string_view)> onInputSelection,
+        std::function<std::vector<MenuItem>()> onOutputMenuOpen, std::function<bool(unsigned int, std::string_view)> onOutputSelection) const -> void;
     auto addOutputRow(std::string_view outputName, std::function<void(std::string)> onTextChange,
-            std::function<std::vector<MenuItem>()> onOutputMenuOpen, std::function<void(unsigned int, std::string_view)> onOutputSelection) const -> void;
+            std::function<std::vector<MenuItem>()> onOutputMenuOpen, std::function<bool(unsigned int, std::string_view)> onOutputSelection) const -> void;
 
     auto enableControls(bool enabled, bool allowRecordingButton = false) const -> void;
     auto postToast(std::string_view message) const -> void;

@@ -5,6 +5,9 @@ export import audio_driver;
 export import audio_stream_params;
 export import audio_library_wrapper;
 export import miniaudio_library_wrapper;
+#ifdef _WIN32
+export import rtaudio_library_wrapper;
+#endif
 export import audio_buffer;
 export import audio_mixer;
 export import audio_channel;

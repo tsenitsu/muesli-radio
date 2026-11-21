@@ -121,7 +121,7 @@ auto  DropdownButton::enabled(const bool shouldEnable) -> void {
     redraw();
 }
 
-auto DropdownButton::onSelection(std::function<void(unsigned int, std::string_view)> onSelection) -> void {
+auto DropdownButton::onSelection(std::function<bool(unsigned int, std::string_view)> onSelection) -> void {
     m_onSelection = std::move(onSelection);
 }
 
@@ -130,13 +130,17 @@ auto DropdownButton::onMenuOpen(std::function<std::vector<MenuItem>()> onMenuOpe
 }
 
 auto DropdownButton::popupSelected(const unsigned int id, std::string_view label) -> void {
-    m_selectedId = id;
-    m_text = label;
+    // Copied before the callback runs: the label points into the popup's items, which resetting this dropdown destroys
+    const std::string selectedLabel { label };
 
     closePopup();
 
-    if (m_onSelection)
-        m_onSelection(id, label);
+    if (m_onSelection and not m_onSelection(id, selectedLabel))
+        return;
+
+    m_selectedId = id;
+    m_text = selectedLabel;
+    redraw();
 }
 
 auto DropdownButton::closePopup() -> void {

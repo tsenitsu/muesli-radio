@@ -7,17 +7,25 @@ namespace audio_engine::audio_device {
 DeviceId::DeviceId(const ma_device_id& id)
  :  m_id { id } {}
 
-DeviceId::DeviceId(const int id)
- :  m_id {} {
-    m_id.nullbackend = id;
-}
-
-ma_device_id DeviceId::id() const {
-    return m_id;
-}
+#ifdef _WIN32
+DeviceId::DeviceId(const RtAudioDeviceId id)
+ :  m_id { id } {}
+#endif
 
 auto DeviceId::operator==(const DeviceId &other) const -> bool {
-    return ma_device_id_equal(&m_id, &other.m_id);
+    // Ids from different audio libraries never refer to the same device
+    if (m_id.index() != other.m_id.index())
+        return false;
+
+    return std::visit([&other]<typename T>(const T& value) -> bool {
+        const auto& otherValue { std::get<T>(other.m_id) };
+
+        // ma_device_id is a union without operator==
+        if constexpr (std::same_as<T, ma_device_id>)
+            return ma_device_id_equal(&value, &otherValue) != MA_FALSE;
+        else
+            return value == otherValue;
+    }, m_id);
 }
 
 NativeDataFormat::NativeDataFormat(const Flags_t flags,

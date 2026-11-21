@@ -64,11 +64,29 @@ public:
                   auto outputLevels(std::span<float> outputLevels) const -> void;
 
 private:
+    // Engine tasks run on kAsioThreadId while ASIO is involved, on a random thread otherwise
+    auto enqueueEngineTask(std::unique_ptr<ats::AsyncTask> task) -> void;
+
+#ifdef _WIN32
+    // True from the moment ASIO is requested until the engine no longer uses it
+    [[nodiscard]] auto isAsioInvolved() const -> bool;
+
+    // ASIO drivers are COM objects bound to the apartment of the thread that created them,
+    // so every engine task must run on the same thread while ASIO is in use
+    static constexpr auto kAsioThreadId { 0u };
+#endif
+
     std::mutex m_taskMutex;
     LoggerManager& m_loggerManager;
     ae::audio_library_wrapper::LogCallback m_logCallback;
     std::unique_ptr<ae::AudioEngine> m_audioEngine;
     std::optional<ats::Dependency> m_writeTaskDependency;
+#ifdef _WIN32
+    // Set by audioDriver() before its task is enqueued
+    std::atomic_bool m_isAsioRequested { false };
+    // Set by the driver change task, from the driver the engine actually ended up with
+    std::atomic_bool m_isAsioActive { false };
+#endif
 };
 
 export [[nodiscard]] auto makeAudioEngineManager(ats::AsyncTaskScheduler& scheduler,
